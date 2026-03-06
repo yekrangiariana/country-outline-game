@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Map Mystery Modes</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./backdrop.css" />
+    <link rel="stylesheet" href="./home.css" />
+    <link rel="stylesheet" href="./mobile.css" media="(max-width: 780px)" />
+  </head>
+  <body>
+    <div id="outlineBackdrop" class="outline-backdrop" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+    <main class="app">
+      <div class="top-nav-row hidden" id="topNavRow">
+        <button id="backToModesBtn" type="button" class="ghost">
+          Back To Modes
+        </button>
+      </div>
+
+      <header class="header">
+        <h1>Map Mystery</h1>
+        <p id="headerDescription">
+          Pick a game mode and play with country outlines and real border data.
+        </p>
+        <p id="headerMeta" class="header-meta hidden" aria-live="polite"></p>
+      </header>
+
+      <section id="modeSelect" class="card mode-select">
+        <div class="mode-select-head">
+          <h2>Choose Mode</h2>
+          <button id="openSettingsBtn" type="button" class="ghost">
+            Settings
+          </button>
+        </div>
+        <p id="activeContinentLabel" class="active-filter">
+          Continent filter: All
+        </p>
+
+        <div id="modeCards" class="mode-cards"></div>
+      </section>
+
+      <div
+        id="settingsOverlay"
+        class="settings-overlay hidden"
+        aria-hidden="true"
+      ></div>
+      <div
+        id="settingsPanel"
+        class="settings-panel hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settingsTitle"
+      >
+        <h3 id="settingsTitle">Game Settings</h3>
+        <label for="continentSelect" class="settings-label">Continent</label>
+        <select id="continentSelect"></select>
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" type="button">Apply</button>
+          <button id="closeSettingsBtn" type="button" class="ghost">
+            Close
+          </button>
+        </div>
+      </div>
+
+      <section id="gameSection" class="card game-card hidden">
+        <div class="status-row hidden">
+          <span id="roundLabel">Round 0 / 0</span>
+          <span id="scoreLabel">Score: 0</span>
+        </div>
+
+        <h3 id="promptLabel" class="prompt"></h3>
+        <p id="hintLabel" class="hint"></p>
+
+        <div id="mapAssistRow" class="assist-row">
+          <label class="assist-toggle" for="mapAssistToggle">
+            <input id="mapAssistToggle" type="checkbox" />
+            <span class="assist-toggle-ui" aria-hidden="true"></span>
+            <span class="assist-toggle-text">World map assist</span>
+          </label>
+        </div>
+
+        <div id="worldMapWrap" class="world-map-wrap hidden">
+          <div class="map-controls" aria-label="Map zoom controls">
+            <button
+              id="mapZoomInBtn"
+              class="map-control-btn"
+              type="button"
+              aria-label="Zoom in map"
+            >
+              +
+            </button>
+            <button
+              id="mapZoomOutBtn"
+              class="map-control-btn"
+              type="button"
+              aria-label="Zoom out map"
+            >
+              -
+            </button>
+          </div>
+          <svg
+            id="worldMapSvg"
+            viewBox="0 0 920 430"
+            role="img"
+            aria-label="World map helper"
+          ></svg>
+        </div>
+
+        <div id="singleWrap" class="outline-wrap hidden">
+          <svg
+            id="outlineSvg"
+            viewBox="0 0 640 380"
+            role="img"
+            aria-label="Country outline"
+          ></svg>
+        </div>
+
+        <div id="duelWrap" class="duel-wrap hidden">
+          <div class="duel-card">
+            <span id="leftTag" class="duel-tag">A</span>
+            <svg
+              id="leftSvg"
+              viewBox="0 0 640 380"
+              role="img"
+              aria-label="Outline A"
+            ></svg>
+          </div>
+          <div class="duel-card">
+            <span id="rightTag" class="duel-tag">B</span>
+            <svg
+              id="rightSvg"
+              viewBox="0 0 640 380"
+              role="img"
+              aria-label="Outline B"
+            ></svg>
+          </div>
+        </div>
+
+        <div
+          id="multiWrap"
+          class="multi-wrap hidden"
+          aria-label="Clue country outlines"
+        ></div>
+
+        <div id="textInputWrap" class="answer-row hidden">
+          <input
+            id="answerInput"
+            type="text"
+            placeholder="Type answer"
+            autocomplete="off"
+          />
+          <button id="submitBtn" type="button">Submit</button>
+        </div>
+
+        <div id="chainBuilderWrap" class="chain-builder-wrap hidden">
+          <div class="chain-input-row">
+            <div class="chain-input-cell">
+              <div class="chain-inline-row">
+                <input
+                  id="chainInput1"
+                  type="text"
+                  placeholder="First middle country"
+                  autocomplete="off"
+                />
+                <div id="chainPreviewCard1" class="chain-inline-preview hidden">
+                  <svg
+                    id="chainPreview1"
+                    viewBox="0 0 640 380"
+                    class="mini-outline-svg"
+                    role="img"
+                    aria-label="Middle country 1 preview"
+                  ></svg>
+                </div>
+              </div>
+            </div>
+            <div class="chain-input-cell">
+              <div class="chain-inline-row">
+                <input
+                  id="chainInput2"
+                  type="text"
+                  placeholder="Second middle country"
+                  autocomplete="off"
+                />
+                <div id="chainPreviewCard2" class="chain-inline-preview hidden">
+                  <svg
+                    id="chainPreview2"
+                    viewBox="0 0 640 380"
+                    class="mini-outline-svg"
+                    role="img"
+                    aria-label="Middle country 2 preview"
+                  ></svg>
+                </div>
+              </div>
+            </div>
+            <button id="chainSubmitBtn" type="button">Submit Chain</button>
+          </div>
+        </div>
+
+        <div id="choiceWrap" class="choice-wrap hidden"></div>
+
+        <p id="feedback" class="feedback" aria-live="polite"></p>
+
+        <div
+          id="resultOverlay"
+          class="result-overlay hidden"
+          aria-live="polite"
+        >
+          <div id="resultOverlayCard" class="result-overlay-card">
+            <p id="resultOverlayMessage" class="result-overlay-message"></p>
+            <button id="overlayNextBtn" type="button">Next</button>
+          </div>
+        </div>
+
+        <p class="source-note">
+          Includes Country Borders data from geodatasource.com.
+        </p>
+      </section>
+
+      <section id="finishCard" class="card result-card hidden">
+        <h2>Game Over</h2>
+        <p id="finalScore"></p>
+        <div id="leaderboardWrap" class="leaderboard-wrap hidden">
+          <div class="leaderboard-head">
+            <h3>Mixed Mode Daily Leaderboard</h3>
+            <button id="refreshLeaderboardBtn" type="button" class="ghost">
+              Refresh
+            </button>
+          </div>
+          <p id="playerNameLabel" class="player-name-label">Player: not set</p>
+          <button id="changePlayerNameBtn" type="button" class="ghost">
+            Change Player Name
+          </button>
+          <p
+            id="leaderboardStatus"
+            class="leaderboard-status"
+            aria-live="polite"
+          ></p>
+          <ol id="leaderboardList" class="leaderboard-list"></ol>
+        </div>
+        <div class="finish-actions">
+          <button id="playAgainBtn" type="button">Play Same Mode</button>
+          <button id="backToModesBtnBottom" type="button" class="ghost">
+            Choose Different Mode
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./vendor/d3.v7.min.js"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,117 @@
+/* Home-only overrides for a compact newspaper puzzle vibe. */
+body.home-view .header {
+  margin-bottom: 10px;
+  padding: 12px;
+  border-top: 4px solid #111;
+  border-bottom: 1px solid #cfcfca;
+}
+
+body.home-view .header h1 {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding-right: 8px;
+  border-right: 5px solid var(--accent);
+}
+
+body.home-view .header p {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.88rem;
+  color: #5a5a56;
+}
+
+body.home-view .header .header-meta {
+  margin: 0;
+}
+
+body.home-view .mode-select-head {
+  margin-bottom: 6px;
+}
+
+body.home-view .mode-select h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 1.03rem;
+}
+
+body.home-view .active-filter {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  border: 1px solid var(--accent-deep);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+body.home-view .mode-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.home-view .mode-card {
+  min-height: 112px;
+  padding: 9px;
+  border-radius: 4px;
+}
+
+body.home-view .mode-card strong {
+  font-size: 0.9rem;
+}
+
+body.home-view .mode-card-copy > span {
+  font-size: 0.77rem;
+}
+
+body.home-view .mode-card:hover {
+  background: #fff7f2;
+}
+
+@media (max-width: 780px) {
+  body.home-view .header {
+    margin-bottom: 6px;
+    padding: 6px 0 5px;
+    border-top-width: 3px;
+  }
+
+  body.home-view .header h1 {
+    margin-bottom: 4px;
+    border-right-width: 4px;
+  }
+
+  body.home-view .header p {
+    font-size: 0.74rem;
+    line-height: 1.22;
+  }
+
+  body.home-view .header .header-meta {
+    font-size: 0.74rem;
+  }
+
+  body.home-view .mode-cards {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  body.home-view .active-filter {
+    padding: 2px 8px;
+    font-size: 0.72rem;
+  }
+
+  body.home-view .mode-card {
+    min-height: 0;
+    padding: 8px;
+  }
+
+  body.home-view .mode-card strong {
+    font-size: 0.83rem;
+  }
+
+  body.home-view .mode-card-copy > span {
+    font-size: 0.72rem;
+  }
+}

@@ -1,0 +1,276 @@
+/* Mobile-only layout constraints and compact typography. */
+@media (max-width: 780px) {
+  :root {
+    --mobile-gap: 6px;
+    --mobile-radius: 6px;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+  }
+
+  .bg-shape {
+    opacity: 0.08;
+    transform: scale(0.7);
+  }
+
+  .app {
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 6px;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: var(--mobile-gap);
+    overflow: hidden;
+  }
+
+  .top-nav-row {
+    margin: 0;
+  }
+
+  .top-nav-row #backToModesBtn {
+    width: auto;
+    min-width: 106px;
+  }
+
+  .header {
+    margin: 0;
+    padding: 6px 7px;
+  }
+
+  .header h1 {
+    font-size: clamp(1.05rem, 5vw, 1.35rem);
+  }
+
+  .header p {
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
+
+  .card {
+    border-radius: var(--mobile-radius);
+  }
+
+  .mode-select,
+  .game-card,
+  .result-card {
+    padding: 8px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #modeSelect,
+  #gameSection,
+  #finishCard {
+    min-height: 0;
+  }
+
+  .mode-select h2,
+  .result-card h2 {
+    font-size: 0.92rem;
+  }
+
+  .active-filter,
+  .settings-label,
+  .settings-panel h3,
+  .status-row,
+  .hint,
+  .assist-toggle,
+  .feedback,
+  .source-note {
+    font-size: 0.72rem;
+  }
+
+  .settings-panel {
+    width: min(92vw, 360px);
+    max-height: calc(100dvh - 24px);
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+  }
+
+  #continentSelect,
+  #answerInput,
+  #chainInput1,
+  #chainInput2 {
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+
+  .mode-cards {
+    gap: 6px;
+  }
+
+  .mode-card {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .mode-card strong {
+    font-size: 0.82rem;
+  }
+
+  .mode-card-copy > span {
+    font-size: 0.71rem;
+  }
+
+  .prompt {
+    margin: 4px 0;
+    font-size: 0.96rem;
+  }
+
+  .hint,
+  .assist-row {
+    margin: 0 0 6px;
+  }
+
+  .assist-toggle-ui {
+    width: 32px;
+    height: 18px;
+  }
+
+  .assist-toggle-ui::after {
+    width: 12px;
+    height: 12px;
+  }
+
+  .assist-toggle input:checked + .assist-toggle-ui::after {
+    transform: translateX(14px);
+  }
+
+  .world-map-wrap,
+  .outline-wrap,
+  .duel-card,
+  .mini-outline-card {
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+
+  #worldMapSvg {
+    max-height: 18dvh;
+  }
+
+  .map-controls {
+    right: 8px;
+    top: 8px;
+    gap: 6px;
+  }
+
+  .map-control-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+  }
+  #outlineSvg,
+  #leftSvg,
+  #rightSvg {
+    max-height: 21dvh;
+  }
+
+  .multi-wrap .mini-outline-svg {
+    max-height: 12dvh;
+  }
+
+  .multi-wrap,
+  .duel-wrap,
+  .choice-wrap,
+  .answer-row,
+  .chain-input-row,
+  .finish-actions {
+    gap: 6px;
+  }
+
+  .duel-wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .multi-wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  button,
+  .choice-btn,
+  #submitBtn,
+  #chainSubmitBtn,
+  #playAgainBtn,
+  #backToModesBtnBottom,
+  #overlayNextBtn,
+  #saveSettingsBtn,
+  #closeSettingsBtn,
+  #openSettingsBtn,
+  #backToModesBtn {
+    min-height: 31px;
+    padding: 6px 8px;
+    font-size: 0.73rem;
+    border-radius: 6px;
+  }
+
+  .feedback {
+    min-height: 16px;
+    margin: 6px 0 1px;
+  }
+
+  .source-note {
+    margin-top: 6px;
+    line-height: 1.2;
+  }
+
+  .result-overlay {
+    border-radius: 6px;
+  }
+
+  .result-overlay-card {
+    width: min(92vw, 330px);
+    padding: 9px;
+    border-radius: 6px;
+  }
+
+  .result-overlay-message {
+    margin-bottom: 7px;
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 420px) {
+  .header h1 {
+    font-size: 1rem;
+  }
+
+  .header p,
+  .status-row,
+  .hint,
+  .assist-toggle,
+  .mode-card strong,
+  .mode-card-copy > span,
+  button,
+  #answerInput,
+  #chainInput1,
+  #chainInput2,
+  .feedback,
+  .source-note {
+    font-size: 0.69rem;
+  }
+
+  #worldMapSvg {
+    max-height: 16dvh;
+  }
+
+  #outlineSvg,
+  #leftSvg,
+  #rightSvg {
+    max-height: 19dvh;
+  }
+}

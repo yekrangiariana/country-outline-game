@@ -1,0 +1,232 @@
+export function createMapAssistManager({
+  mapAssistRow,
+  mapAssistToggle,
+  worldMapWrap,
+  worldMapSvg,
+  mapZoomInBtn,
+  mapZoomOutBtn,
+  getSourceData,
+}) {
+  let zoomBehavior = null;
+  let svgSelection = null;
+  let currentViewport = null;
+
+  function clearMap() {
+    worldMapWrap.classList.add("hidden");
+    worldMapSvg.innerHTML = "";
+    currentViewport = null;
+  }
+
+  function setViewportTransform(transform) {
+    if (!currentViewport) {
+      return;
+    }
+    currentViewport.setAttribute(
+      "transform",
+      `translate(${transform.x},${transform.y}) scale(${transform.k})`,
+    );
+  }
+
+  function ensureZoom(d3) {
+    if (zoomBehavior && svgSelection) {
+      return;
+    }
+
+    svgSelection = d3.select(worldMapSvg);
+    zoomBehavior = d3
+      .zoom()
+      .scaleExtent([1, 8])
+      .on("zoom", (event) => {
+        setViewportTransform(event.transform);
+      });
+
+    svgSelection.call(zoomBehavior).on("dblclick.zoom", null);
+  }
+
+  function renderWorldMap(worldAssist = null) {
+    if (!mapAssistToggle.checked) {
+      clearMap();
+      return;
+    }
+
+    worldMapWrap.classList.remove("hidden");
+
+    const d3 = globalThis.d3;
+    const sourceData = getSourceData();
+    if (!d3 || !sourceData?.countries?.length) {
+      clearMap();
+      return;
+    }
+
+    ensureZoom(d3);
+
+    const zoomIso2 = worldAssist?.zoomIso2 || [];
+    const focusSet = new Set((zoomIso2 || []).filter(Boolean));
+    const roleByIso2 = new Map();
+    (worldAssist?.highlights || []).forEach((item) => {
+      if (item?.iso2 && item?.role) {
+        roleByIso2.set(item.iso2, item.role);
+      }
+    });
+
+    const featureCollection = {
+      type: "FeatureCollection",
+      features: sourceData.countries.map((country) => country.feature),
+    };
+    const focusedFeatures = sourceData.countries
+      .filter((country) => focusSet.has(country.iso2))
+      .map((country) => country.feature);
+    const focusCollection = {
+      type: "FeatureCollection",
+      features: focusedFeatures,
+    };
+
+    const projection = d3.geoNaturalEarth1();
+    const fitTarget = focusedFeatures.length
+      ? focusCollection
+      : featureCollection;
+    const fitExtent = focusedFeatures.length
+      ? [
+          [92, 54],
+          [828, 372],
+        ]
+      : [
+          [56, 30],
+          [864, 400],
+        ];
+    projection.fitExtent(fitExtent, fitTarget);
+    const path = d3.geoPath(projection);
+
+    worldMapSvg.innerHTML = "";
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const marker = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "marker",
+    );
+    marker.setAttribute("id", "worldArrowHead");
+    marker.setAttribute("viewBox", "0 0 10 10");
+    marker.setAttribute("refX", "9");
+    marker.setAttribute("refY", "5");
+    marker.setAttribute("markerWidth", "6");
+    marker.setAttribute("markerHeight", "6");
+    marker.setAttribute("orient", "auto-start-reverse");
+    const arrowPath = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "path",
+    );
+    arrowPath.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+    arrowPath.setAttribute("fill", "#1e9b4e");
+    marker.appendChild(arrowPath);
+    defs.appendChild(marker);
+    worldMapSvg.appendChild(defs);
+
+    currentViewport = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g",
+    );
+    currentViewport.setAttribute("class", "world-map-viewport");
+    worldMapSvg.appendChild(currentViewport);
+
+    const centroidByIso2 = new Map();
+    sourceData.countries.forEach((country) => {
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", path(country.feature));
+      const role = roleByIso2.get(country.iso2);
+      const roleClass = role
+        ? ` role-${role}`
+        : focusSet.has(country.iso2)
+          ? " focus"
+          : "";
+      p.setAttribute("class", `world-country${roleClass}`);
+      currentViewport.appendChild(p);
+      centroidByIso2.set(country.iso2, path.centroid(country.feature));
+    });
+
+    const chainPath = worldAssist?.chainPathIso2 || [];
+    for (let i = 0; i < chainPath.length - 1; i += 1) {
+      const from = centroidByIso2.get(chainPath[i]);
+      const to = centroidByIso2.get(chainPath[i + 1]);
+      if (!from || !to) {
+        continue;
+      }
+
+      const line = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line",
+      );
+      line.setAttribute("x1", String(from[0]));
+      line.setAttribute("y1", String(from[1]));
+      line.setAttribute("x2", String(to[0]));
+      line.setAttribute("y2", String(to[1]));
+      line.setAttribute("class", "world-chain-arrow");
+      currentViewport.appendChild(line);
+    }
+
+    (worldAssist?.labels || []).forEach((entry) => {
+      const xy = centroidByIso2.get(entry.iso2);
+      if (!xy) {
+        return;
+      }
+
+      const text = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text",
+      );
+      text.setAttribute("x", String(xy[0] + 6));
+      text.setAttribute("y", String(xy[1] - 6));
+      text.setAttribute("class", "world-map-label");
+      text.textContent = entry.text;
+      currentViewport.appendChild(text);
+    });
+
+    svgSelection.call(zoomBehavior.transform, d3.zoomIdentity);
+  }
+
+  function renderWorldAssist(question, hasSubmitted = false) {
+    const fallbackFocus = question?.worldFocusIso2 || [];
+    const worldAssist = question?.worldAssist || { zoomIso2: fallbackFocus };
+    const policy = question?.mapAssistPolicy || "optional";
+
+    if (policy === "disabled") {
+      mapAssistRow.classList.add("hidden");
+      clearMap();
+      return;
+    }
+
+    if (policy === "reveal-only") {
+      mapAssistRow.classList.add("hidden");
+      if (!hasSubmitted) {
+        clearMap();
+        return;
+      }
+      renderWorldMap(worldAssist);
+      return;
+    }
+
+    mapAssistRow.classList.remove("hidden");
+    renderWorldMap(worldAssist);
+  }
+
+  mapZoomInBtn.addEventListener("click", () => {
+    const d3 = globalThis.d3;
+    if (!d3 || !svgSelection || !zoomBehavior) {
+      return;
+    }
+    svgSelection.transition().duration(140).call(zoomBehavior.scaleBy, 1.35);
+  });
+
+  mapZoomOutBtn.addEventListener("click", () => {
+    const d3 = globalThis.d3;
+    if (!d3 || !svgSelection || !zoomBehavior) {
+      return;
+    }
+    svgSelection
+      .transition()
+      .duration(140)
+      .call(zoomBehavior.scaleBy, 1 / 1.35);
+  });
+
+  return {
+    renderWorldAssist,
+  };
+}

@@ -1,0 +1,113 @@
+.outline-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.outline-backdrop-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0.2;
+}
+
+.outline-backdrop-track {
+  display: flex;
+  gap: 14px;
+  width: max-content;
+  animation: backdrop-marquee var(--row-duration, 24s) linear infinite;
+  animation-delay: var(--row-delay, 0s);
+  will-change: transform;
+}
+
+.outline-backdrop-row.reverse .outline-backdrop-track {
+  animation-direction: reverse;
+}
+
+.outline-backdrop-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid rgba(25, 25, 25, 0.16);
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(0.4px);
+}
+
+.outline-backdrop-svg {
+  width: 110px;
+  height: 64px;
+  flex: 0 0 auto;
+}
+
+.outline-backdrop-path {
+  fill: rgba(18, 18, 18, 0.025);
+  stroke: rgba(20, 20, 20, 0.26);
+  stroke-width: 0.8;
+}
+
+@keyframes backdrop-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 1280px) {
+  .outline-backdrop-row {
+    opacity: 0.24;
+  }
+
+  .outline-backdrop-track {
+    gap: 18px;
+  }
+
+  .outline-backdrop-token {
+    padding: 4px 8px;
+  }
+
+  .outline-backdrop-svg {
+    width: 138px;
+    height: 80px;
+  }
+}
+
+@media (min-width: 1680px) {
+  .outline-backdrop-row {
+    opacity: 0.28;
+  }
+
+  .outline-backdrop-track {
+    gap: 22px;
+  }
+
+  .outline-backdrop-svg {
+    width: 170px;
+    height: 98px;
+  }
+}
+
+@media (max-width: 780px) {
+  .outline-backdrop-row {
+    opacity: 0.16;
+  }
+
+  .outline-backdrop-track {
+    gap: 8px;
+  }
+
+  .outline-backdrop-token {
+    padding: 2px 5px;
+  }
+
+  .outline-backdrop-svg {
+    width: 76px;
+    height: 44px;
+  }
+}
