@@ -28,6 +28,7 @@ You can keep hosting the frontend on GitHub Pages and use Supabase for leaderboa
 
 Mixed mode (`Daily Puzzle`) uses a deterministic 5-question set each day.
 Scoring is 1 point per correct answer, so total score is always out of 5 in this mode.
+The daily reset now follows the player's local midnight.
 
 ### 1. Create The Table In Supabase
 
@@ -68,11 +69,54 @@ for insert
 to anon
 with check (
 	mode_id = 'daily-puzzle'
+	and day_key is not null
+	and device_id is not null
+	and char_length(device_id) >= 12
+	and (player_country is null or char_length(player_country) = 2)
 	and score >= 0 and score <= 5
 	and max_score = 5
 	and char_length(display_name) between 3 and 16
 );
 ```
+
+### 2.1 Enforce One Competitive Play Per Day (Per Device)
+
+Run this SQL migration to prevent multiple daily submissions from the same device:
+
+```sql
+alter table public.leaderboard_scores
+	add column if not exists device_id text;
+
+alter table public.leaderboard_scores
+	add column if not exists player_country text;
+
+create unique index if not exists leaderboard_scores_daily_unique_device_idx
+	on public.leaderboard_scores (mode_id, day_key, device_id);
+```
+
+If you already created the insert policy earlier, update it:
+
+```sql
+drop policy if exists "Public can insert bounded mixed scores" on public.leaderboard_scores;
+
+create policy "Public can insert bounded mixed scores"
+on public.leaderboard_scores
+for insert
+to anon
+with check (
+	mode_id = 'daily-puzzle'
+	and day_key is not null
+	and device_id is not null
+	and char_length(device_id) >= 12
+	and (player_country is null or char_length(player_country) = 2)
+	and score >= 0 and score <= 5
+	and max_score = 5
+	and char_length(display_name) between 3 and 16
+);
+```
+
+This project also blocks the user from starting Competitive Mode again on the same day in the UI.
+Country capture is best-effort from browser locale and is saved as a two-letter country code when available.
 
 ### 3. Add Supabase Project Keys
 

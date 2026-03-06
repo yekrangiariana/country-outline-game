@@ -1,11 +1,19 @@
 import { drawOutline, loadGameData, normalize } from "./gameData.js";
 import { createMapAssistManager } from "./mapAssist.js";
 import {
+  detectPlayerCountry,
+  fetchMyCompetitiveRunToday,
   fetchDailyLeaderboard,
+  getOrCreateDeviceId,
+  getNextLocalMidnightDate,
+  parseCountryInputToCode,
+  getTodayDayKey,
+  hasPlayedCompetitiveToday,
   isLeaderboardEnabled,
   sanitizeDisplayName,
   submitDailyScore,
 } from "./leaderboard.js";
+import { generateFunnyName } from "./nameGenerator.js";
 import { createBattleMode } from "./modes/battleMode.js";
 import { createDailyPuzzleMode } from "./modes/dailyPuzzleMode.js";
 import { createNormalMode } from "./modes/normalMode.js";
@@ -13,6 +21,7 @@ import { createRegionChainMode } from "./modes/regionChainMode.js";
 import { createReverseBorderMode } from "./modes/reverseBorderMode.js";
 
 const PLAYER_NAME_STORAGE_KEY = "mapMysteryPlayerName";
+const PLAYER_COUNTRY_STORAGE_KEY = "mapMysteryPlayerCountry";
 const COMPETITIVE_MODE_ID = "daily-puzzle";
 
 const modeCards = document.getElementById("modeCards");
@@ -24,6 +33,15 @@ const modeSelect = document.getElementById("modeSelect");
 const openSettingsBtn = document.getElementById("openSettingsBtn");
 const settingsOverlay = document.getElementById("settingsOverlay");
 const settingsPanel = document.getElementById("settingsPanel");
+const nameEntryOverlay = document.getElementById("nameEntryOverlay");
+const nameEntryPanel = document.getElementById("nameEntryPanel");
+const nameEntryInput = document.getElementById("nameEntryInput");
+const generateNameBtn = document.getElementById("generateNameBtn");
+const nameEntryCountryInput = document.getElementById("nameEntryCountryInput");
+const nameEntryCountryEmoji = document.getElementById("nameEntryCountryEmoji");
+const nameEntryError = document.getElementById("nameEntryError");
+const saveNameBtn = document.getElementById("saveNameBtn");
+const cancelNameBtn = document.getElementById("cancelNameBtn");
 const continentSelect = document.getElementById("continentSelect");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -74,7 +92,9 @@ const leaderboardList = document.getElementById("leaderboardList");
 const refreshLeaderboardBtn = document.getElementById("refreshLeaderboardBtn");
 const backToModesBtn = document.getElementById("backToModesBtn");
 const backToModesBtnBottom = document.getElementById("backToModesBtnBottom");
-const playAgainBtn = document.getElementById("playAgainBtn");
+
+let resolveNamePrompt = null;
+let competitiveCountdownTimer = null;
 
 const modeCatalog = [
   {
@@ -103,8 +123,8 @@ const modeCatalog = [
   },
   {
     id: "daily-puzzle",
-    title: "Mixed Questions",
-    desc: "A fixed daily set of mixed geography challenges.",
+    title: "Competitive Mode",
+    desc: "A daily 5-question challenge with ranked leaderboard scoring.",
     build: (data) => createDailyPuzzleMode(data),
   },
 ];
@@ -117,6 +137,14 @@ const state = {
   selectedModeId: null,
   settings: {
     continent: "All",
+  },
+  deviceId: "",
+  detectedCountry: null,
+  playerCountry: null,
+  todayKey: "",
+  competitive: {
+    playedToday: false,
+    run: null,
   },
   playerName: "",
   round: 0,
@@ -153,6 +181,30 @@ function setSettingsOpen(enabled) {
   if (enabled) {
     continentSelect.focus();
   }
+}
+
+function setNameEntryOpen(enabled) {
+  if (!nameEntryPanel || !nameEntryOverlay) {
+    return;
+  }
+
+  nameEntryPanel.classList.toggle("hidden", !enabled);
+  nameEntryOverlay.classList.toggle("hidden", !enabled);
+  document.body.classList.toggle("name-modal-open", enabled);
+
+  if (enabled) {
+    nameEntryInput.focus();
+    nameEntryInput.select();
+  }
+}
+
+function resolveNamePromptResult(value) {
+  if (!resolveNamePrompt) {
+    return;
+  }
+  const resolve = resolveNamePrompt;
+  resolveNamePrompt = null;
+  resolve(value);
 }
 
 function createBackdropToken(country) {
@@ -310,10 +362,58 @@ function loadStoredPlayerName() {
   }
 }
 
-function savePlayerName(name) {
+function normalizeCountryCode(rawCountry) {
+  const clean = String(rawCountry || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(clean) ? clean : null;
+}
+
+function resolveCountryCodeFromInput(inputValue) {
+  const parsed = parseCountryInputToCode(inputValue, state.detectedCountry);
+  if (parsed) {
+    return parsed;
+  }
+
+  const alias = normalize(inputValue || "");
+  if (!alias) {
+    return normalizeCountryCode(state.detectedCountry);
+  }
+
+  const fromGameData = state.data?.aliasToIso2?.get(alias) || null;
+  return normalizeCountryCode(fromGameData);
+}
+
+function countryCodeToDisplayName(code) {
+  const clean = normalizeCountryCode(code);
+  if (!clean) {
+    return "";
+  }
+
+  try {
+    const displayName = new Intl.DisplayNames(["en"], { type: "region" }).of(clean);
+    return displayName || clean;
+  } catch {
+    return clean;
+  }
+}
+
+function loadStoredPlayerCountry() {
+  try {
+    return normalizeCountryCode(localStorage.getItem(PLAYER_COUNTRY_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function savePlayerName(name, countryCode = state.playerCountry) {
   state.playerName = name;
+  state.playerCountry = normalizeCountryCode(countryCode);
   try {
     localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name);
+    if (state.playerCountry) {
+      localStorage.setItem(PLAYER_COUNTRY_STORAGE_KEY, state.playerCountry);
+    } else {
+      localStorage.removeItem(PLAYER_COUNTRY_STORAGE_KEY);
+    }
   } catch {
     // Local storage can fail in private browsing modes.
   }
@@ -325,28 +425,59 @@ function updatePlayerNameLabel() {
     return;
   }
 
-  playerNameLabel.textContent = state.playerName
-    ? `Player: ${state.playerName}`
-    : "Player: not set";
+  if (!state.playerName) {
+    playerNameLabel.textContent = "Player: not set";
+    return;
+  }
+
+  const activeCountry = state.playerCountry || detectPlayerCountry();
+  const flag = countryCodeToFlagEmoji(activeCountry);
+  playerNameLabel.textContent = flag
+    ? `Player: ${flag} ${state.playerName}`
+    : `Player: ${state.playerName}`;
+}
+
+function updateCountryEmojiPreview(inputValue) {
+  if (!nameEntryCountryEmoji) {
+    return;
+  }
+
+  const resolvedCode = resolveCountryCodeFromInput(inputValue);
+  const flag = countryCodeToFlagEmoji(resolvedCode);
+  nameEntryCountryEmoji.textContent = flag || "🌐";
 }
 
 function askForPlayerName() {
-  const raw = window.prompt(
-    "Enter your display name (3-16 chars, letters/numbers/spaces/_).",
-    state.playerName || "",
-  );
+  if (!nameEntryPanel || !nameEntryOverlay) {
+    const fallback = window.prompt(
+      "Enter your display name (3-16 chars, letters/numbers/spaces/_).",
+      state.playerName || "",
+    );
+    if (fallback === null) {
+      return Promise.resolve(null);
+    }
+    const validation = sanitizeDisplayName(fallback);
+    if (!validation.ok) {
+      return Promise.resolve(null);
+    }
 
-  if (raw === null) {
-    return null;
+    return Promise.resolve({
+      name: validation.value,
+      countryCode: state.playerCountry,
+    });
   }
 
-  const validation = sanitizeDisplayName(raw);
-  if (!validation.ok) {
-    window.alert(validation.message);
-    return askForPlayerName();
+  nameEntryInput.value = state.playerName || "";
+  if (nameEntryCountryInput) {
+    nameEntryCountryInput.value = countryCodeToDisplayName(state.playerCountry);
+    updateCountryEmojiPreview(nameEntryCountryInput.value);
   }
+  nameEntryError.textContent = "";
+  setNameEntryOpen(true);
 
-  return validation.value;
+  return new Promise((resolve) => {
+    resolveNamePrompt = resolve;
+  });
 }
 
 async function ensureCompetitiveName(modeId) {
@@ -359,13 +490,121 @@ async function ensureCompetitiveName(modeId) {
     return true;
   }
 
-  const pickedName = askForPlayerName();
-  if (!pickedName) {
+  const pickedProfile = await askForPlayerName();
+  if (!pickedProfile) {
     return false;
   }
 
-  savePlayerName(pickedName);
+  savePlayerName(pickedProfile.name, pickedProfile.countryCode);
   return true;
+}
+
+async function ensureCompetitiveDailyEligibility(modeId) {
+  if (modeId !== COMPETITIVE_MODE_ID || !isLeaderboardEnabled()) {
+    return true;
+  }
+
+  const result = await hasPlayedCompetitiveToday(state.deviceId);
+  if (!result.ok) {
+    window.alert(result.message || "Could not verify today's eligibility.");
+    return false;
+  }
+
+  if (!result.played) {
+    return true;
+  }
+
+  window.alert("You already played Competitive Mode today. Come back tomorrow.");
+  return false;
+}
+
+function getNextMidnightDate() {
+  return getNextLocalMidnightDate();
+}
+
+function formatCountdown(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(
+    2,
+    "0",
+  );
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function countryCodeToFlagEmoji(countryCode) {
+  const clean = String(countryCode || "").toUpperCase();
+  if (!/^[A-Z]{2}$/.test(clean)) {
+    return "";
+  }
+
+  const first = clean.codePointAt(0) + 127397;
+  const second = clean.codePointAt(1) + 127397;
+  return String.fromCodePoint(first, second);
+}
+
+function getCompetitiveCardDetail() {
+  if (!state.competitive.playedToday) {
+    return "A daily 5-question challenge with ranked leaderboard scoring.";
+  }
+
+  const score = Number.isInteger(state.competitive.run?.score)
+    ? state.competitive.run.score
+    : 0;
+  const maxScore = Number.isInteger(state.competitive.run?.max_score)
+    ? state.competitive.run.max_score
+    : 5;
+  const remaining = getNextMidnightDate().getTime() - Date.now();
+  return `Today's result: ${score}/${maxScore}. New round in ${formatCountdown(remaining)}.`;
+}
+
+async function refreshCompetitiveState() {
+  state.todayKey = getTodayDayKey();
+
+  if (!isLeaderboardEnabled()) {
+    state.competitive.playedToday = false;
+    state.competitive.run = null;
+    return;
+  }
+
+  const [playedResult, runResult] = await Promise.all([
+    hasPlayedCompetitiveToday(state.deviceId),
+    fetchMyCompetitiveRunToday(state.deviceId),
+  ]);
+
+  if (!playedResult.ok) {
+    state.competitive.playedToday = false;
+    state.competitive.run = null;
+    return;
+  }
+
+  state.competitive.playedToday = playedResult.played;
+  state.competitive.run = runResult.ok ? runResult.row : null;
+}
+
+async function refreshCompetitiveStateAndUi() {
+  await refreshCompetitiveState();
+  renderModeCards();
+}
+
+function startCompetitiveCountdownTimer() {
+  if (competitiveCountdownTimer) {
+    clearInterval(competitiveCountdownTimer);
+  }
+
+  competitiveCountdownTimer = setInterval(() => {
+    if (!state.competitive.playedToday) {
+      return;
+    }
+
+    renderModeCards();
+
+    const currentDayKey = getTodayDayKey();
+    if (currentDayKey !== state.todayKey) {
+      void refreshCompetitiveStateAndUi();
+    }
+  }, 1000);
 }
 
 function setLeaderboardStatus(message, kind = "") {
@@ -396,6 +635,7 @@ function renderLeaderboardRows(rows) {
     li.className = "leaderboard-row";
 
     const name = row.display_name || "Anonymous";
+    const flag = countryCodeToFlagEmoji(row.player_country);
     const score = Number.isInteger(row.score) ? row.score : 0;
     const maxScore = Number.isInteger(row.max_score) ? row.max_score : 0;
     const stamp = row.played_at
@@ -411,7 +651,7 @@ function renderLeaderboardRows(rows) {
 
     const nameEl = document.createElement("span");
     nameEl.className = "lb-name";
-    nameEl.textContent = name;
+    nameEl.textContent = flag ? `${flag} ${name}` : name;
 
     const scoreEl = document.createElement("span");
     scoreEl.className = "lb-score";
@@ -473,6 +713,8 @@ async function submitCompetitiveScore(maxScore) {
     score: state.score,
     maxScore,
     continent: state.settings.continent,
+    deviceId: state.deviceId,
+    playerCountry: state.playerCountry || detectPlayerCountry(),
   });
 
   if (!submitResult.ok) {
@@ -482,6 +724,16 @@ async function submitCompetitiveScore(maxScore) {
     );
     return;
   }
+
+  state.competitive.playedToday = true;
+  state.competitive.run = {
+    score: state.score,
+    max_score: maxScore,
+    played_at: new Date().toISOString(),
+    display_name: state.playerName,
+    player_country: state.playerCountry || detectPlayerCountry(),
+  };
+  renderModeCards();
 
   setLeaderboardStatus("Score submitted. Refreshing leaderboard...");
   await refreshDailyLeaderboard();
@@ -494,12 +746,31 @@ function renderModeCards() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mode-card";
+
+    const isCompetitive = mode.id === COMPETITIVE_MODE_ID;
+    const lockedToday = isCompetitive && state.competitive.playedToday;
+    const description = isCompetitive ? getCompetitiveCardDetail() : mode.desc;
+
+    if (lockedToday) {
+      btn.classList.add("locked");
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    }
+
     btn.innerHTML = `
       <span class="mode-card-copy">
         <strong>${mode.title}</strong>
-        <span>${mode.desc}</span>
+        <span>${description}</span>
       </span>
     `;
+
+    if (lockedToday) {
+      const lockNote = document.createElement("span");
+      lockNote.className = "mode-lock-note";
+      lockNote.textContent = "Already played today";
+      btn.appendChild(lockNote);
+    }
+
     btn.addEventListener("click", () => {
       void startMode(mode.id);
     });
@@ -741,7 +1012,29 @@ function finishGame() {
   topNavRow.classList.remove("hidden");
 
   const maxScore = state.session?.totalRounds || state.round || 0;
-  finalScore.textContent = `You scored ${state.score} out of ${maxScore}.`;
+  const accuracy = maxScore ? Math.round((state.score / maxScore) * 100) : 0;
+  const accuracyLabel =
+    accuracy >= 90
+      ? "Elite run"
+      : accuracy >= 70
+        ? "Strong run"
+        : accuracy >= 50
+          ? "Solid attempt"
+          : "Keep training";
+
+  finalScore.innerHTML = `
+    <div class="score-summary-label">Final Score</div>
+    <div class="score-summary-value">
+      <span class="score-summary-main">${state.score}</span>
+      <span class="score-summary-divider">/</span>
+      <span class="score-summary-max">${maxScore}</span>
+    </div>
+    <div class="score-summary-meta">
+      <span>${accuracy}% accuracy</span>
+      <span class="score-summary-dot" aria-hidden="true"></span>
+      <span>${accuracyLabel}</span>
+    </div>
+  `;
 
   if (state.selectedModeId === COMPETITIVE_MODE_ID && leaderboardWrap) {
     leaderboardWrap.classList.remove("hidden");
@@ -762,6 +1055,11 @@ async function startMode(modeId) {
 
   const canStart = await ensureCompetitiveName(modeId);
   if (!canStart) {
+    return;
+  }
+
+  const canPlayToday = await ensureCompetitiveDailyEligibility(modeId);
+  if (!canPlayToday) {
     return;
   }
 
@@ -827,6 +1125,12 @@ saveSettingsBtn.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !nameEntryPanel.classList.contains("hidden")) {
+    setNameEntryOpen(false);
+    resolveNamePromptResult(null);
+    return;
+  }
+
   if (event.key === "Escape" && !settingsPanel.classList.contains("hidden")) {
     setSettingsOpen(false);
   }
@@ -879,21 +1183,88 @@ mapAssistToggle.addEventListener("change", () => {
 
 backToModesBtn.addEventListener("click", backToModes);
 backToModesBtnBottom.addEventListener("click", backToModes);
-playAgainBtn.addEventListener("click", () => {
-  if (!state.selectedModeId) {
-    backToModes();
-    return;
-  }
-  void startMode(state.selectedModeId);
-});
 
 if (changePlayerNameBtn) {
-  changePlayerNameBtn.addEventListener("click", () => {
-    const pickedName = askForPlayerName();
-    if (!pickedName) {
+  changePlayerNameBtn.addEventListener("click", async () => {
+    const pickedProfile = await askForPlayerName();
+    if (!pickedProfile) {
       return;
     }
-    savePlayerName(pickedName);
+    savePlayerName(pickedProfile.name, pickedProfile.countryCode);
+  });
+}
+
+if (nameEntryOverlay) {
+  nameEntryOverlay.addEventListener("click", () => {
+    setNameEntryOpen(false);
+    resolveNamePromptResult(null);
+  });
+}
+
+if (cancelNameBtn) {
+  cancelNameBtn.addEventListener("click", () => {
+    setNameEntryOpen(false);
+    resolveNamePromptResult(null);
+  });
+}
+
+if (saveNameBtn) {
+  saveNameBtn.addEventListener("click", () => {
+    const validation = sanitizeDisplayName(nameEntryInput.value);
+    if (!validation.ok) {
+      nameEntryError.textContent = validation.message;
+      return;
+    }
+
+    const rawCountryInput = nameEntryCountryInput?.value || "";
+    const hasCountryText = String(rawCountryInput).trim().length > 0;
+    const resolvedCountryCode = resolveCountryCodeFromInput(rawCountryInput);
+
+    if (hasCountryText && !resolvedCountryCode) {
+      nameEntryError.textContent =
+        "Country not recognized. Try a country name or 2-letter code (example: Japan or JP).";
+      return;
+    }
+
+    nameEntryError.textContent = "";
+    setNameEntryOpen(false);
+    resolveNamePromptResult({
+      name: validation.value,
+      countryCode: resolvedCountryCode,
+    });
+  });
+}
+
+if (generateNameBtn) {
+  generateNameBtn.addEventListener("click", () => {
+    nameEntryInput.value = generateFunnyName();
+    if (nameEntryError.textContent) {
+      nameEntryError.textContent = "";
+    }
+  });
+}
+
+if (nameEntryInput) {
+  nameEntryInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveNameBtn?.click();
+    }
+  });
+
+  nameEntryInput.addEventListener("input", () => {
+    if (nameEntryError.textContent) {
+      nameEntryError.textContent = "";
+    }
+  });
+}
+
+if (nameEntryCountryInput) {
+  nameEntryCountryInput.addEventListener("input", () => {
+    updateCountryEmojiPreview(nameEntryCountryInput.value);
+    if (nameEntryError.textContent) {
+      nameEntryError.textContent = "";
+    }
   });
 }
 
@@ -907,6 +1278,10 @@ async function init() {
   setHomeViewClass(true);
   setHeaderGameMeta(false);
   setSettingsOpen(false);
+  state.deviceId = getOrCreateDeviceId();
+  state.detectedCountry = detectPlayerCountry();
+  state.playerCountry = loadStoredPlayerCountry() || state.detectedCountry;
+  state.todayKey = getTodayDayKey();
   state.playerName = loadStoredPlayerName();
   updatePlayerNameLabel();
   setFeedback("Loading local datasets...");
@@ -924,7 +1299,8 @@ async function init() {
     updateActiveFilterLabel();
     renderOutlineBackdrop(state.data);
     setFeedback("");
-    renderModeCards();
+    await refreshCompetitiveStateAndUi();
+    startCompetitiveCountdownTimer();
     if (isLeaderboardEnabled()) {
       void refreshDailyLeaderboard();
     }

@@ -66,6 +66,52 @@
         </div>
       </div>
 
+      <div
+        id="nameEntryOverlay"
+        class="name-entry-overlay hidden"
+        aria-hidden="true"
+      ></div>
+      <div
+        id="nameEntryPanel"
+        class="name-entry-panel hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nameEntryTitle"
+      >
+        <h3 id="nameEntryTitle">Enter Competitor Name</h3>
+        <p class="name-entry-copy">
+          This name is used on the Competitive Mode leaderboard.
+        </p>
+        <label for="nameEntryInput" class="settings-label">Display Name</label>
+        <div class="name-entry-name-row">
+          <input
+            id="nameEntryInput"
+            type="text"
+            maxlength="16"
+            autocomplete="off"
+            placeholder="AtlasRival"
+          />
+          <button id="generateNameBtn" type="button" class="ghost">
+            Generate
+          </button>
+        </div>
+        <label for="nameEntryCountryInput" class="settings-label">Country</label>
+        <div class="name-entry-country-row">
+          <input
+            id="nameEntryCountryInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Type country (for example Japan or JP)"
+          />
+          <span id="nameEntryCountryEmoji" class="name-entry-country-emoji">🌐</span>
+        </div>
+        <p id="nameEntryError" class="name-entry-error" aria-live="polite"></p>
+        <div class="name-entry-actions">
+          <button id="saveNameBtn" type="button">Save Name</button>
+          <button id="cancelNameBtn" type="button" class="ghost">Cancel</button>
+        </div>
+      </div>
+
       <section id="gameSection" class="card game-card hidden">
         <div class="status-row hidden">
           <span id="roundLabel">Round 0 / 0</span>
@@ -222,10 +268,10 @@
 
       <section id="finishCard" class="card result-card hidden">
         <h2>Game Over</h2>
-        <p id="finalScore"></p>
+        <div id="finalScore" class="score-summary"></div>
         <div id="leaderboardWrap" class="leaderboard-wrap hidden">
           <div class="leaderboard-head">
-            <h3>Mixed Mode Daily Leaderboard</h3>
+            <h3>Competitive Mode Daily Leaderboard</h3>
             <button id="refreshLeaderboardBtn" type="button" class="ghost">
               Refresh
             </button>
@@ -242,7 +288,6 @@
           <ol id="leaderboardList" class="leaderboard-list"></ol>
         </div>
         <div class="finish-actions">
-          <button id="playAgainBtn" type="button">Play Same Mode</button>
           <button id="backToModesBtnBottom" type="button" class="ghost">
             Choose Different Mode
           </button>
