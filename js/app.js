@@ -17,11 +17,13 @@ import { generateFunnyName } from "./nameGenerator.js";
 import { createBattleMode } from "./modes/battleMode.js";
 import { createDailyPuzzleMode } from "./modes/dailyPuzzleMode.js";
 import { createNormalMode } from "./modes/normalMode.js";
+import { createMapSelectMode } from "./modes/mapSelectMode.js";
 import { createRegionChainMode } from "./modes/regionChainMode.js";
 import { createReverseBorderMode } from "./modes/reverseBorderMode.js";
 
 const PLAYER_NAME_STORAGE_KEY = "mapMysteryPlayerName";
 const PLAYER_COUNTRY_STORAGE_KEY = "mapMysteryPlayerCountry";
+const COMPETITIVE_PROGRESS_STORAGE_KEY = "mapMysteryCompetitiveProgress";
 const COMPETITIVE_MODE_ID = "daily-puzzle";
 
 const modeCards = document.getElementById("modeCards");
@@ -77,6 +79,8 @@ const chainPreviewCard2 = document.getElementById("chainPreviewCard2");
 const chainPreview1 = document.getElementById("chainPreview1");
 const chainPreview2 = document.getElementById("chainPreview2");
 const choiceWrap = document.getElementById("choiceWrap");
+const secondaryActions = document.getElementById("secondaryActions");
+const revealBtn = document.getElementById("revealBtn");
 const feedback = document.getElementById("feedback");
 const resultOverlay = document.getElementById("resultOverlay");
 const resultOverlayCard = document.getElementById("resultOverlayCard");
@@ -85,13 +89,10 @@ const overlayNextBtn = document.getElementById("overlayNextBtn");
 const finishCard = document.getElementById("finishCard");
 const finalScore = document.getElementById("finalScore");
 const playerNameLabel = document.getElementById("playerNameLabel");
-const changePlayerNameBtn = document.getElementById("changePlayerNameBtn");
 const leaderboardWrap = document.getElementById("leaderboardWrap");
 const leaderboardStatus = document.getElementById("leaderboardStatus");
 const leaderboardList = document.getElementById("leaderboardList");
-const refreshLeaderboardBtn = document.getElementById("refreshLeaderboardBtn");
 const backToModesBtn = document.getElementById("backToModesBtn");
-const backToModesBtnBottom = document.getElementById("backToModesBtnBottom");
 
 let resolveNamePrompt = null;
 let competitiveCountdownTimer = null;
@@ -102,6 +103,12 @@ const modeCatalog = [
     title: "Normal Mode",
     desc: "Classic country-outline guessing mode.",
     build: (data) => createNormalMode(data),
+  },
+  {
+    id: "map-select",
+    title: "Map Select",
+    desc: "Given a country name, click it on the world map and submit.",
+    build: (data) => createMapSelectMode(data),
   },
   {
     id: "region-chain",
@@ -145,11 +152,13 @@ const state = {
   competitive: {
     playedToday: false,
     run: null,
+    localProgress: null,
   },
   playerName: "",
   round: 0,
   score: 0,
   hasSubmitted: false,
+  mapSelectReadyForNext: false,
 };
 
 let backdropRenderTimer = null;
@@ -363,7 +372,9 @@ function loadStoredPlayerName() {
 }
 
 function normalizeCountryCode(rawCountry) {
-  const clean = String(rawCountry || "").trim().toUpperCase();
+  const clean = String(rawCountry || "")
+    .trim()
+    .toUpperCase();
   return /^[A-Z]{2}$/.test(clean) ? clean : null;
 }
 
@@ -389,7 +400,9 @@ function countryCodeToDisplayName(code) {
   }
 
   try {
-    const displayName = new Intl.DisplayNames(["en"], { type: "region" }).of(clean);
+    const displayName = new Intl.DisplayNames(["en"], { type: "region" }).of(
+      clean,
+    );
     return displayName || clean;
   } catch {
     return clean;
@@ -398,10 +411,115 @@ function countryCodeToDisplayName(code) {
 
 function loadStoredPlayerCountry() {
   try {
-    return normalizeCountryCode(localStorage.getItem(PLAYER_COUNTRY_STORAGE_KEY));
+    return normalizeCountryCode(
+      localStorage.getItem(PLAYER_COUNTRY_STORAGE_KEY),
+    );
   } catch {
     return null;
   }
+}
+
+function loadCompetitiveProgress(dayKey) {
+  try {
+    const raw = localStorage.getItem(COMPETITIVE_PROGRESS_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      parsed.modeId !== COMPETITIVE_MODE_ID ||
+      parsed.dayKey !== dayKey
+    ) {
+      return null;
+    }
+
+    const answeredCount = Number.parseInt(parsed.answeredCount, 10);
+    const score = Number.parseInt(parsed.score, 10);
+    const maxScore = Number.parseInt(parsed.maxScore, 10);
+
+    if (!Number.isInteger(answeredCount) || answeredCount < 0) {
+      return null;
+    }
+
+    if (!Number.isInteger(score) || score < 0) {
+      return null;
+    }
+
+    if (!Number.isInteger(maxScore) || maxScore <= 0) {
+      return null;
+    }
+
+    return {
+      modeId: COMPETITIVE_MODE_ID,
+      dayKey,
+      answeredCount: Math.min(answeredCount, maxScore),
+      score: Math.min(score, maxScore),
+      maxScore,
+      completed: Boolean(parsed.completed),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearCompetitiveProgress() {
+  try {
+    localStorage.removeItem(COMPETITIVE_PROGRESS_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function persistCompetitiveProgress(progress) {
+  const safeProgress = {
+    modeId: COMPETITIVE_MODE_ID,
+    dayKey: progress.dayKey,
+    answeredCount: Math.max(
+      0,
+      Number.parseInt(progress.answeredCount, 10) || 0,
+    ),
+    score: Math.max(0, Number.parseInt(progress.score, 10) || 0),
+    maxScore: Math.max(1, Number.parseInt(progress.maxScore, 10) || 5),
+    completed: Boolean(progress.completed),
+  };
+
+  safeProgress.answeredCount = Math.min(
+    safeProgress.answeredCount,
+    safeProgress.maxScore,
+  );
+  safeProgress.score = Math.min(safeProgress.score, safeProgress.maxScore);
+
+  try {
+    localStorage.setItem(
+      COMPETITIVE_PROGRESS_STORAGE_KEY,
+      JSON.stringify(safeProgress),
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+
+  state.competitive.localProgress = safeProgress;
+}
+
+function saveCompetitiveInProgressSnapshot() {
+  if (
+    state.selectedModeId !== COMPETITIVE_MODE_ID ||
+    !state.session ||
+    !state.todayKey
+  ) {
+    return;
+  }
+
+  const maxScore = state.session.totalRounds || 5;
+  persistCompetitiveProgress({
+    dayKey: state.todayKey,
+    answeredCount: state.round,
+    score: state.score,
+    maxScore,
+    completed: false,
+  });
 }
 
 function savePlayerName(name, countryCode = state.playerCountry) {
@@ -504,6 +622,21 @@ async function ensureCompetitiveDailyEligibility(modeId) {
     return true;
   }
 
+  const localProgress = state.competitive.localProgress;
+  if (localProgress && localProgress.dayKey === state.todayKey) {
+    if (localProgress.completed) {
+      window.alert(
+        "You already played Competitive Mode today. Come back tomorrow.",
+      );
+      return false;
+    }
+
+    // Incomplete local run means we should resume instead of restarting.
+    if (localProgress.answeredCount < localProgress.maxScore) {
+      return true;
+    }
+  }
+
   const result = await hasPlayedCompetitiveToday(state.deviceId);
   if (!result.ok) {
     window.alert(result.message || "Could not verify today's eligibility.");
@@ -514,7 +647,9 @@ async function ensureCompetitiveDailyEligibility(modeId) {
     return true;
   }
 
-  window.alert("You already played Competitive Mode today. Come back tomorrow.");
+  window.alert(
+    "You already played Competitive Mode today. Come back tomorrow.",
+  );
   return false;
 }
 
@@ -545,6 +680,16 @@ function countryCodeToFlagEmoji(countryCode) {
 }
 
 function getCompetitiveCardDetail() {
+  const localProgress = state.competitive.localProgress;
+  if (
+    localProgress &&
+    !localProgress.completed &&
+    localProgress.dayKey === state.todayKey
+  ) {
+    const nextQuestion = Math.min(localProgress.answeredCount + 1, 5);
+    return `Resume today's run: question ${nextQuestion}/5, score ${localProgress.score}/5.`;
+  }
+
   if (!state.competitive.playedToday) {
     return "A daily 5-question challenge with ranked leaderboard scoring.";
   }
@@ -561,9 +706,16 @@ function getCompetitiveCardDetail() {
 
 async function refreshCompetitiveState() {
   state.todayKey = getTodayDayKey();
+  state.competitive.localProgress = loadCompetitiveProgress(state.todayKey);
+
+  if (!state.competitive.localProgress) {
+    clearCompetitiveProgress();
+  }
 
   if (!isLeaderboardEnabled()) {
-    state.competitive.playedToday = false;
+    state.competitive.playedToday = Boolean(
+      state.competitive.localProgress?.completed,
+    );
     state.competitive.run = null;
     return;
   }
@@ -574,13 +726,39 @@ async function refreshCompetitiveState() {
   ]);
 
   if (!playedResult.ok) {
+    if (state.competitive.localProgress?.completed) {
+      state.competitive.playedToday = true;
+      state.competitive.run = {
+        score: state.competitive.localProgress.score,
+        max_score: state.competitive.localProgress.maxScore,
+        played_at: null,
+      };
+      return;
+    }
+
     state.competitive.playedToday = false;
     state.competitive.run = null;
     return;
   }
 
-  state.competitive.playedToday = playedResult.played;
-  state.competitive.run = runResult.ok ? runResult.row : null;
+  if (playedResult.played) {
+    state.competitive.playedToday = true;
+    state.competitive.run = runResult.ok ? runResult.row : null;
+    return;
+  }
+
+  if (state.competitive.localProgress?.completed) {
+    state.competitive.playedToday = true;
+    state.competitive.run = {
+      score: state.competitive.localProgress.score,
+      max_score: state.competitive.localProgress.maxScore,
+      played_at: null,
+    };
+    return;
+  }
+
+  state.competitive.playedToday = false;
+  state.competitive.run = null;
 }
 
 async function refreshCompetitiveStateAndUi() {
@@ -615,10 +793,79 @@ function setLeaderboardStatus(message, kind = "") {
   leaderboardStatus.className = `leaderboard-status ${kind}`.trim();
 }
 
-function renderLeaderboardRows(rows) {
+function getLeaderboardRowMatchScore(row) {
+  const cleanDeviceId = String(state.deviceId || "").trim();
+  if (cleanDeviceId && row.device_id === cleanDeviceId) {
+    return 100;
+  }
+
+  const run = state.competitive.run || {};
+  let score = 0;
+
+  if (run.display_name && row.display_name === run.display_name) {
+    score += 30;
+  }
+
+  if (Number.isInteger(run.score) && Number.isInteger(row.score)) {
+    if (row.score === run.score) {
+      score += 20;
+    }
+  }
+
+  if (Number.isInteger(run.max_score) && Number.isInteger(row.max_score)) {
+    if (row.max_score === run.max_score) {
+      score += 10;
+    }
+  }
+
+  if (
+    run.player_country &&
+    row.player_country &&
+    run.player_country === row.player_country
+  ) {
+    score += 10;
+  }
+
+  if (run.played_at && row.played_at && run.played_at === row.played_at) {
+    score += 25;
+  }
+
+  return score;
+}
+
+function findMyLeaderboardRowIndex(rows) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return -1;
+  }
+
+  const deviceMatch = rows.findIndex((row) => {
+    const cleanDeviceId = String(state.deviceId || "").trim();
+    return cleanDeviceId && row.device_id === cleanDeviceId;
+  });
+  if (deviceMatch >= 0) {
+    return deviceMatch;
+  }
+
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  rows.forEach((row, idx) => {
+    const score = getLeaderboardRowMatchScore(row);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = idx;
+    }
+  });
+
+  return bestScore >= 50 ? bestIndex : -1;
+}
+
+function renderLeaderboardRows(rows, options = {}) {
   if (!leaderboardList) {
     return;
   }
+
+  const { autoScrollToMine = false } = options;
 
   leaderboardList.innerHTML = "";
 
@@ -630,9 +877,17 @@ function renderLeaderboardRows(rows) {
     return;
   }
 
+  const myRowIndex = findMyLeaderboardRowIndex(rows);
+  let myRowEl = null;
+
   rows.forEach((row, idx) => {
     const li = document.createElement("li");
     li.className = "leaderboard-row";
+
+    if (idx === myRowIndex) {
+      li.classList.add("me");
+      myRowEl = li;
+    }
 
     const name = row.display_name || "Anonymous";
     const flag = countryCodeToFlagEmoji(row.player_country);
@@ -665,11 +920,37 @@ function renderLeaderboardRows(rows) {
     li.appendChild(nameEl);
     li.appendChild(scoreEl);
     li.appendChild(timeEl);
+
+    if (idx === myRowIndex) {
+      const youEl = document.createElement("span");
+      youEl.className = "lb-you";
+      youEl.textContent = "You";
+      li.appendChild(youEl);
+    }
+
     leaderboardList.appendChild(li);
   });
+
+  const shouldScroll =
+    autoScrollToMine &&
+    myRowEl &&
+    !leaderboardWrap?.classList.contains("hidden") &&
+    !finishCard?.classList.contains("hidden");
+
+  if (shouldScroll) {
+    requestAnimationFrame(() => {
+      myRowEl.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    });
+  }
 }
 
-async function refreshDailyLeaderboard() {
+async function refreshDailyLeaderboard(options = {}) {
+  const { autoScrollToMine = false } = options;
+
   if (!isLeaderboardEnabled()) {
     renderLeaderboardRows([]);
     setLeaderboardStatus(
@@ -689,7 +970,7 @@ async function refreshDailyLeaderboard() {
     return;
   }
 
-  renderLeaderboardRows(result.rows || []);
+  renderLeaderboardRows(result.rows || [], { autoScrollToMine });
   setLeaderboardStatus("Showing today's top scores.");
 }
 
@@ -733,10 +1014,12 @@ async function submitCompetitiveScore(maxScore) {
     display_name: state.playerName,
     player_country: state.playerCountry || detectPlayerCountry(),
   };
+  clearCompetitiveProgress();
+  state.competitive.localProgress = null;
   renderModeCards();
 
   setLeaderboardStatus("Score submitted. Refreshing leaderboard...");
-  await refreshDailyLeaderboard();
+  await refreshDailyLeaderboard({ autoScrollToMine: true });
 }
 
 function renderModeCards() {
@@ -748,6 +1031,10 @@ function renderModeCards() {
     btn.className = "mode-card";
 
     const isCompetitive = mode.id === COMPETITIVE_MODE_ID;
+    const resumableToday =
+      isCompetitive &&
+      state.competitive.localProgress?.dayKey === state.todayKey &&
+      !state.competitive.localProgress?.completed;
     const lockedToday = isCompetitive && state.competitive.playedToday;
     const description = isCompetitive ? getCompetitiveCardDetail() : mode.desc;
 
@@ -764,10 +1051,12 @@ function renderModeCards() {
       </span>
     `;
 
-    if (lockedToday) {
+    if (lockedToday || resumableToday) {
       const lockNote = document.createElement("span");
       lockNote.className = "mode-lock-note";
-      lockNote.textContent = "Already played today";
+      lockNote.textContent = lockedToday
+        ? "Already played today"
+        : "Resume available";
       btn.appendChild(lockNote);
     }
 
@@ -833,6 +1122,10 @@ function renderVisuals(visuals) {
     visuals.leftFeature &&
     visuals.rightFeature
   ) {
+    if (state.selectedModeId === "region-chain") {
+      return;
+    }
+
     duelWrap.classList.remove("hidden");
     leftTag.textContent = visuals.leftLabel || "A";
     rightTag.textContent = visuals.rightLabel || "B";
@@ -889,13 +1182,24 @@ function updateChainPreview(inputEl, svgEl) {
 
 function renderInput(input) {
   textInputWrap.classList.add("hidden");
+  textInputWrap.classList.remove("docked-input");
+  secondaryActions.classList.remove("paired-with-input");
+  secondaryActions.classList.remove("paired-with-choice");
+  secondaryActions.classList.remove("paired-with-chain");
   chainBuilderWrap.classList.add("hidden");
+  chainBuilderWrap.classList.remove("without-inline-submit");
   choiceWrap.classList.add("hidden");
+  choiceWrap.classList.remove("docked-choice");
+  secondaryActions.classList.remove("hidden");
+  revealBtn.disabled = false;
   submitBtn.classList.add("hidden");
+  chainSubmitBtn.classList.add("hidden");
   choiceWrap.innerHTML = "";
 
   if (input.type === "choice") {
     choiceWrap.classList.remove("hidden");
+    choiceWrap.classList.add("docked-choice");
+    secondaryActions.classList.add("paired-with-choice");
     input.options.forEach((option) => {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -909,6 +1213,10 @@ function renderInput(input) {
 
   if (input.type === "chain-builder") {
     chainBuilderWrap.classList.remove("hidden");
+    chainBuilderWrap.classList.add("without-inline-submit");
+    secondaryActions.classList.add("paired-with-chain");
+    submitBtn.classList.remove("hidden");
+    submitBtn.textContent = "Submit Chain";
     chainInput1.value = "";
     chainInput2.value = "";
     chainInput1.placeholder = input.placeholders?.[0] || "First middle country";
@@ -918,16 +1226,64 @@ function renderInput(input) {
     chainPreview2.innerHTML = "";
     chainPreviewCard1.classList.add("hidden");
     chainPreviewCard2.classList.add("hidden");
-    chainInput1.focus();
+    return;
+  }
+
+  if (input.type === "map-select") {
+    textInputWrap.classList.add("hidden");
+    submitBtn.classList.remove("hidden");
+    answerInput.classList.add("hidden");
+    answerInput.value = "";
+    answerInput.type = "text";
+    answerInput.placeholder = "";
+    answerInput.readOnly = true;
+    submitBtn.textContent = "Submit Selection";
     return;
   }
 
   textInputWrap.classList.remove("hidden");
+  textInputWrap.classList.add("docked-input");
+  secondaryActions.classList.add("paired-with-input");
   submitBtn.classList.remove("hidden");
+  answerInput.classList.remove("hidden");
+  submitBtn.textContent = "Submit";
+  answerInput.readOnly = false;
   answerInput.value = "";
   answerInput.type = input.type === "number" ? "number" : "text";
   answerInput.placeholder = input.placeholder || "Type answer";
-  answerInput.focus();
+}
+
+function finalizeAnswer(result) {
+  state.hasSubmitted = true;
+  state.score += result.points || 0;
+  updateStatus();
+  saveCompetitiveInProgressSnapshot();
+  mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
+
+  if (state.currentQuestion?.input?.type === "map-select") {
+    setFeedback(result.message, result.correct ? "correct" : "wrong");
+    revealBtn.disabled = true;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Next";
+    state.mapSelectReadyForNext = true;
+    return;
+  }
+
+  resultOverlayMessage.textContent = result.message;
+  resultOverlayCard.classList.add(result.correct ? "correct" : "wrong");
+  resultOverlay.classList.remove("hidden");
+
+  submitBtn.disabled = true;
+  revealBtn.disabled = true;
+  answerInput.disabled = true;
+  chainSubmitBtn.disabled = true;
+  chainInput1.disabled = true;
+  chainInput2.disabled = true;
+  [...choiceWrap.querySelectorAll("button")].forEach((btn) => {
+    btn.disabled = true;
+  });
+
+  overlayNextBtn.focus();
 }
 
 function updateStatus() {
@@ -960,6 +1316,7 @@ function applyMapAssistDefault(question) {
 function showQuestion() {
   state.currentQuestion = state.session.nextQuestion();
   state.hasSubmitted = false;
+  state.mapSelectReadyForNext = false;
   setFeedback("");
   resultOverlay.classList.add("hidden");
   resultOverlayCard.classList.remove("correct", "wrong");
@@ -986,30 +1343,90 @@ function submitAnswer(rawAnswer) {
   }
 
   const result = state.currentQuestion.submit(rawAnswer);
-  state.hasSubmitted = true;
-  state.score += result.points || 0;
-  updateStatus();
+  finalizeAnswer(result);
+}
 
-  resultOverlayMessage.textContent = result.message;
-  resultOverlayCard.classList.add(result.correct ? "correct" : "wrong");
-  resultOverlay.classList.remove("hidden");
+function handleWorldMapSelection(event) {
+  if (!state.currentQuestion || state.hasSubmitted) {
+    return;
+  }
 
-  submitBtn.disabled = true;
-  answerInput.disabled = true;
-  chainSubmitBtn.disabled = true;
-  chainInput1.disabled = true;
-  chainInput2.disabled = true;
-  [...choiceWrap.querySelectorAll("button")].forEach((btn) => {
-    btn.disabled = true;
+  if (state.currentQuestion.input?.type !== "map-select") {
+    return;
+  }
+
+  const target = event.target instanceof Element ? event.target : null;
+  const countryPath = target?.closest?.(".world-country");
+  if (!countryPath) {
+    return;
+  }
+
+  const iso2 = countryPath.getAttribute("data-iso2");
+  if (!iso2) {
+    return;
+  }
+
+  if (typeof state.currentQuestion.setSelection === "function") {
+    state.currentQuestion.setSelection(iso2);
+  }
+
+  // Keep selection silent to avoid revealing country names.
+  if (!state.hasSubmitted) {
+    setFeedback("");
+  }
+  mapAssist.renderWorldAssist(state.currentQuestion, false);
+}
+
+function revealAnswer() {
+  if (!state.currentQuestion || state.hasSubmitted) {
+    return;
+  }
+
+  if (state.currentQuestion.input?.type === "map-select") {
+    const result =
+      typeof state.currentQuestion.reveal === "function"
+        ? state.currentQuestion.reveal()
+        : {
+            correct: false,
+            points: 0,
+            message: "Revealed on map.",
+          };
+
+    state.hasSubmitted = true;
+    updateStatus();
+    saveCompetitiveInProgressSnapshot();
+    mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
+    setFeedback(result.message || "Revealed on map.", "wrong");
+    revealBtn.disabled = true;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Next";
+    state.mapSelectReadyForNext = true;
+    return;
+  }
+
+  const result =
+    typeof state.currentQuestion.reveal === "function"
+      ? state.currentQuestion.reveal()
+      : {
+          correct: false,
+          points: 0,
+          message: "Answer reveal is not available for this question.",
+        };
+
+  finalizeAnswer({
+    correct: false,
+    points: 0,
+    ...result,
   });
-
-  overlayNextBtn.focus();
 }
 
 function finishGame() {
   gameSection.classList.add("hidden");
   finishCard.classList.remove("hidden");
   topNavRow.classList.remove("hidden");
+  setHeaderGameMeta(false);
+  headerDescription.classList.add("hidden");
+  headerMeta.classList.add("hidden");
 
   const maxScore = state.session?.totalRounds || state.round || 0;
   const accuracy = maxScore ? Math.round((state.score / maxScore) * 100) : 0;
@@ -1037,6 +1454,23 @@ function finishGame() {
   `;
 
   if (state.selectedModeId === COMPETITIVE_MODE_ID && leaderboardWrap) {
+    persistCompetitiveProgress({
+      dayKey: state.todayKey,
+      answeredCount: maxScore,
+      score: state.score,
+      maxScore,
+      completed: true,
+    });
+    state.competitive.playedToday = true;
+    state.competitive.run = {
+      score: state.score,
+      max_score: maxScore,
+      played_at: new Date().toISOString(),
+      display_name: state.playerName || "",
+      player_country: state.playerCountry || detectPlayerCountry(),
+    };
+    renderModeCards();
+
     leaderboardWrap.classList.remove("hidden");
     void submitCompetitiveScore(maxScore);
     return;
@@ -1065,9 +1499,36 @@ async function startMode(modeId) {
 
   state.activeData = buildFilteredData(state.data, state.settings.continent);
   state.selectedModeId = modeId;
-  state.session = modeDef.build(state.activeData);
-  state.round = 0;
-  state.score = 0;
+  const competitiveResume =
+    modeId === COMPETITIVE_MODE_ID &&
+    state.competitive.localProgress?.dayKey === state.todayKey &&
+    !state.competitive.localProgress?.completed
+      ? state.competitive.localProgress
+      : null;
+
+  state.session = modeDef.build(
+    state.activeData,
+    modeId === COMPETITIVE_MODE_ID ? { dayKey: state.todayKey } : undefined,
+  );
+  state.round = competitiveResume?.answeredCount || 0;
+  state.score = competitiveResume?.score || 0;
+
+  if (modeId === COMPETITIVE_MODE_ID) {
+    if (competitiveResume) {
+      for (let i = 0; i < competitiveResume.answeredCount; i += 1) {
+        state.session.nextQuestion();
+      }
+    } else {
+      persistCompetitiveProgress({
+        dayKey: state.todayKey,
+        answeredCount: 0,
+        score: 0,
+        maxScore: state.session.totalRounds || 5,
+        completed: false,
+      });
+    }
+  }
+
   mapAssistToggle.checked = modeId === "region-chain";
   setSettingsOpen(false);
 
@@ -1104,6 +1565,7 @@ function backToModes() {
   setHomeViewClass(true);
   setHeaderGameMeta(false);
   setSettingsOpen(false);
+  renderModeCards();
 }
 
 openSettingsBtn.addEventListener("click", () => {
@@ -1137,6 +1599,27 @@ document.addEventListener("keydown", (event) => {
 });
 
 submitBtn.addEventListener("click", () => {
+  if (state.currentQuestion?.input?.type === "map-select") {
+    if (state.mapSelectReadyForNext) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Selection";
+      showQuestion();
+      return;
+    }
+
+    const selectedIso2 =
+      typeof state.currentQuestion.getSelection === "function"
+        ? state.currentQuestion.getSelection()
+        : "";
+    submitAnswer(selectedIso2 || "");
+    return;
+  }
+
+  if (state.currentQuestion?.input?.type === "chain-builder") {
+    submitAnswer([chainInput1.value, chainInput2.value]);
+    return;
+  }
+
   submitAnswer(answerInput.value);
 });
 
@@ -1151,6 +1634,7 @@ overlayNextBtn.addEventListener("click", () => {
   resultOverlay.classList.add("hidden");
   resultOverlayCard.classList.remove("correct", "wrong");
   submitBtn.disabled = false;
+  revealBtn.disabled = false;
   answerInput.disabled = false;
   chainSubmitBtn.disabled = false;
   chainInput1.disabled = false;
@@ -1181,18 +1665,9 @@ mapAssistToggle.addEventListener("change", () => {
   mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
 });
 
-backToModesBtn.addEventListener("click", backToModes);
-backToModesBtnBottom.addEventListener("click", backToModes);
+worldMapSvg.addEventListener("click", handleWorldMapSelection);
 
-if (changePlayerNameBtn) {
-  changePlayerNameBtn.addEventListener("click", async () => {
-    const pickedProfile = await askForPlayerName();
-    if (!pickedProfile) {
-      return;
-    }
-    savePlayerName(pickedProfile.name, pickedProfile.countryCode);
-  });
-}
+backToModesBtn.addEventListener("click", backToModes);
 
 if (nameEntryOverlay) {
   nameEntryOverlay.addEventListener("click", () => {
@@ -1268,10 +1743,8 @@ if (nameEntryCountryInput) {
   });
 }
 
-if (refreshLeaderboardBtn) {
-  refreshLeaderboardBtn.addEventListener("click", () => {
-    void refreshDailyLeaderboard();
-  });
+if (revealBtn) {
+  revealBtn.addEventListener("click", revealAnswer);
 }
 
 async function init() {

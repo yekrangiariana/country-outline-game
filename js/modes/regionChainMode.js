@@ -117,6 +117,13 @@ function buildChainQuestion(data, rng) {
           message: `Wrong. A valid chain is ${start.name} -> ${mid1.name} -> ${mid2.name} -> ${end.name}.`,
         };
       },
+      reveal() {
+        return {
+          correct: false,
+          points: 0,
+          message: `Revealed. A valid chain is ${start.name} -> ${mid1.name} -> ${mid2.name} -> ${end.name}.`,
+        };
+      },
     };
   }
 
@@ -130,6 +137,14 @@ function buildChainQuestion(data, rng) {
         correct: false,
         points: 0,
         message: "Round skipped due to insufficient connected-border data.",
+      };
+    },
+    reveal() {
+      return {
+        correct: false,
+        points: 0,
+        message:
+          "Revealed. Round skipped due to insufficient connected-border data.",
       };
     },
   };

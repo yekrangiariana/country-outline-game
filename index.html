@@ -41,6 +41,10 @@
         </p>
 
         <div id="modeCards" class="mode-cards"></div>
+        <p class="source-note">
+          Data sources: Natural Earth country outlines and GeoDataSource
+          country borders.
+        </p>
       </section>
 
       <div
@@ -95,7 +99,9 @@
             Generate
           </button>
         </div>
-        <label for="nameEntryCountryInput" class="settings-label">Country</label>
+        <label for="nameEntryCountryInput" class="settings-label"
+          >Country</label
+        >
         <div class="name-entry-country-row">
           <input
             id="nameEntryCountryInput"
@@ -103,7 +109,9 @@
             autocomplete="off"
             placeholder="Type country (for example Japan or JP)"
           />
-          <span id="nameEntryCountryEmoji" class="name-entry-country-emoji">🌐</span>
+          <span id="nameEntryCountryEmoji" class="name-entry-country-emoji"
+            >🌐</span
+          >
         </div>
         <p id="nameEntryError" class="name-entry-error" aria-live="polite"></p>
         <div class="name-entry-actions">
@@ -199,7 +207,6 @@
             placeholder="Type answer"
             autocomplete="off"
           />
-          <button id="submitBtn" type="button">Submit</button>
         </div>
 
         <div id="chainBuilderWrap" class="chain-builder-wrap hidden">
@@ -248,6 +255,13 @@
 
         <div id="choiceWrap" class="choice-wrap hidden"></div>
 
+        <div id="secondaryActions" class="secondary-actions hidden">
+          <button id="submitBtn" type="button">Submit</button>
+          <button id="revealBtn" type="button" class="ghost">
+            Reveal Answer
+          </button>
+        </div>
+
         <p id="feedback" class="feedback" aria-live="polite"></p>
 
         <div
@@ -261,9 +275,6 @@
           </div>
         </div>
 
-        <p class="source-note">
-          Includes Country Borders data from geodatasource.com.
-        </p>
       </section>
 
       <section id="finishCard" class="card result-card hidden">
@@ -272,25 +283,14 @@
         <div id="leaderboardWrap" class="leaderboard-wrap hidden">
           <div class="leaderboard-head">
             <h3>Competitive Mode Daily Leaderboard</h3>
-            <button id="refreshLeaderboardBtn" type="button" class="ghost">
-              Refresh
-            </button>
           </div>
           <p id="playerNameLabel" class="player-name-label">Player: not set</p>
-          <button id="changePlayerNameBtn" type="button" class="ghost">
-            Change Player Name
-          </button>
           <p
             id="leaderboardStatus"
             class="leaderboard-status"
             aria-live="polite"
           ></p>
           <ol id="leaderboardList" class="leaderboard-list"></ol>
-        </div>
-        <div class="finish-actions">
-          <button id="backToModesBtnBottom" type="button" class="ghost">
-            Choose Different Mode
-          </button>
         </div>
       </section>
     </main>

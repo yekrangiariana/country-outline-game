@@ -106,9 +106,10 @@ export function getNextLocalMidnightDate() {
 
 export function detectPlayerCountry() {
   // Best-effort country guess from browser locale (no external geolocation request).
-  const candidates = [navigator.language, ...(navigator.languages || [])].filter(
-    Boolean,
-  );
+  const candidates = [
+    navigator.language,
+    ...(navigator.languages || []),
+  ].filter(Boolean);
 
   for (const localeTag of candidates) {
     try {
@@ -135,7 +136,9 @@ export function detectPlayerCountry() {
 export function parseCountryInputToCode(rawCountry, fallbackCode = null) {
   const clean = String(rawCountry || "").trim();
   if (!clean) {
-    const fallback = String(fallbackCode || "").trim().toUpperCase();
+    const fallback = String(fallbackCode || "")
+      .trim()
+      .toUpperCase();
     return /^[A-Z]{2}$/.test(fallback) ? fallback : null;
   }
 
@@ -278,7 +281,9 @@ export async function fetchDailyLeaderboard(limit = 20) {
   const dayKey = getTodayDayKey();
   const { data, error } = await db
     .from(TABLE_NAME)
-    .select("display_name, score, max_score, continent, played_at, player_country")
+    .select(
+      "display_name, score, max_score, continent, played_at, player_country, device_id",
+    )
     .eq("mode_id", MODE_ID)
     .eq("day_key", dayKey)
     .order("score", { ascending: false })
@@ -351,7 +356,7 @@ export async function fetchMyCompetitiveRunToday(deviceId) {
   const dayKey = getTodayDayKey();
   const { data, error } = await db
     .from(TABLE_NAME)
-    .select("score, max_score, played_at, display_name")
+    .select("score, max_score, played_at, display_name, player_country")
     .eq("mode_id", MODE_ID)
     .eq("day_key", dayKey)
     .eq("device_id", cleanDeviceId)

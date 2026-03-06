@@ -1,9 +1,62 @@
 import { createSeededRandom, sample } from "../gameData.js";
 import { createBattleMode } from "./battleMode.js";
+import { createMapSelectMode } from "./mapSelectMode.js";
 import { createNormalMode } from "./normalMode.js";
 import { createReverseBorderMode } from "./reverseBorderMode.js";
 
 const ROUNDS = 5;
+
+function formatUtcDate(date) {
+  const yyyy = String(date.getUTCFullYear());
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getPreviousDayKey(dayKey) {
+  const match = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(dt.getTime())) {
+    return null;
+  }
+
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return formatUtcDate(dt);
+}
+
+function getQuestionFingerprint(questions) {
+  return questions
+    .map(
+      (question) => `${question?.prompt || ""}|${question?.input?.type || ""}`,
+    )
+    .join("||");
+}
+
+function buildQuestionsForSeed(data, seedText) {
+  const rng = createSeededRandom(seedText);
+
+  const normalSession = createNormalMode(data, rng);
+  const reverseBorderSession = createReverseBorderMode(data, rng);
+  const battleSession = createBattleMode(data, rng);
+  const mapSelectSession = createMapSelectMode(data, rng);
+
+  const builders = [
+    () => normalSession.nextQuestion(),
+    () => reverseBorderSession.nextQuestion(),
+    () => battleSession.nextQuestion(),
+    () => mapSelectSession.nextQuestion(),
+    () => buildNeighborCountQuestion(data, rng),
+  ];
+
+  return builders.map((build) => build());
+}
 
 function buildNeighborCountQuestion(data, rng) {
   const target = sample(data.countries, rng);
@@ -23,68 +76,40 @@ function buildNeighborCountQuestion(data, rng) {
         message: correct ? "Exactly right." : `Answer: ${count}.`,
       };
     },
-  };
-}
-
-function buildTrueFalseQuestion(data, rng) {
-  const a = sample(data.countries, rng);
-  const isTrue = rng() > 0.5 && a.neighbors.size > 0;
-
-  let b;
-  if (isTrue) {
-    b = data.iso2ToCountry.get(sample([...a.neighbors], rng));
-  } else {
-    const nonNeighbors = data.countries.filter(
-      (country) => country.iso2 !== a.iso2 && !a.neighbors.has(country.iso2),
-    );
-    b = sample(nonNeighbors, rng);
-  }
-
-  return {
-    prompt: `True or False: ${a.name} borders ${b.name}.`,
-    hint: "Choose one.",
-    input: {
-      type: "choice",
-      options: [
-        { value: "true", label: "True" },
-        { value: "false", label: "False" },
-      ],
-    },
-    visuals: {
-      layout: "duel",
-      leftFeature: a.feature,
-      rightFeature: b.feature,
-      leftLabel: a.name,
-      rightLabel: b.name,
-    },
-    submit(rawAnswer) {
-      const correct = rawAnswer === (isTrue ? "true" : "false");
+    reveal() {
       return {
-        correct,
-        points: correct ? 1 : 0,
-        message: correct ? "Correct." : `It is ${isTrue ? "True" : "False"}.`,
+        correct: false,
+        points: 0,
+        message: `Revealed. Answer: ${count}.`,
       };
     },
   };
 }
 
-export function createDailyPuzzleMode(data) {
-  const dayKey = new Date().toISOString().slice(0, 10);
-  const rng = createSeededRandom(`daily-${dayKey}`);
+export function createDailyPuzzleMode(data, options = {}) {
+  const dayKey =
+    typeof options.dayKey === "string" && options.dayKey.trim()
+      ? options.dayKey.trim()
+      : new Date().toISOString().slice(0, 10);
+  const baseSeed = `daily-${dayKey}`;
+  let questions = buildQuestionsForSeed(data, baseSeed);
 
-  const normalSession = createNormalMode(data, rng);
-  const reverseBorderSession = createReverseBorderMode(data, rng);
-  const battleSession = createBattleMode(data, rng);
+  // Avoid a rare exact repeat versus yesterday while staying deterministic.
+  const previousDayKey = getPreviousDayKey(dayKey);
+  if (previousDayKey) {
+    const previousQuestions = buildQuestionsForSeed(
+      data,
+      `daily-${previousDayKey}`,
+    );
 
-  const builders = [
-    () => normalSession.nextQuestion(),
-    () => reverseBorderSession.nextQuestion(),
-    () => battleSession.nextQuestion(),
-    () => buildNeighborCountQuestion(data, rng),
-    () => buildTrueFalseQuestion(data, rng),
-  ];
+    if (
+      getQuestionFingerprint(questions) ===
+      getQuestionFingerprint(previousQuestions)
+    ) {
+      questions = buildQuestionsForSeed(data, `${baseSeed}-alt`);
+    }
+  }
 
-  const questions = builders.map((build) => build());
   let index = 0;
 
   return {

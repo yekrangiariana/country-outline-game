@@ -35,7 +35,7 @@ export function createMapAssistManager({
     svgSelection = d3.select(worldMapSvg);
     zoomBehavior = d3
       .zoom()
-      .scaleExtent([1, 8])
+      .scaleExtent([0.35, 8])
       .on("zoom", (event) => {
         setViewportTransform(event.transform);
       });
@@ -43,8 +43,9 @@ export function createMapAssistManager({
     svgSelection.call(zoomBehavior).on("dblclick.zoom", null);
   }
 
-  function renderWorldMap(worldAssist = null) {
-    if (!mapAssistToggle.checked) {
+  function renderWorldMap(worldAssist = null, options = {}) {
+    const { forceVisible = false } = options;
+    if (!forceVisible && !mapAssistToggle.checked) {
       clearMap();
       return;
     }
@@ -131,6 +132,7 @@ export function createMapAssistManager({
     sourceData.countries.forEach((country) => {
       const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
       p.setAttribute("d", path(country.feature));
+      p.setAttribute("data-iso2", country.iso2);
       const role = roleByIso2.get(country.iso2);
       const roleClass = role
         ? ` role-${role}`
@@ -168,6 +170,12 @@ export function createMapAssistManager({
         return;
       }
 
+      const labelGroup = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "g",
+      );
+      labelGroup.setAttribute("class", "world-map-label-tag");
+
       const text = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "text",
@@ -176,7 +184,22 @@ export function createMapAssistManager({
       text.setAttribute("y", String(xy[1] - 6));
       text.setAttribute("class", "world-map-label");
       text.textContent = entry.text;
-      currentViewport.appendChild(text);
+
+      labelGroup.appendChild(text);
+      currentViewport.appendChild(labelGroup);
+
+      const bbox = text.getBBox();
+      const padX = 7;
+      const padY = 4;
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bg.setAttribute("x", String(bbox.x - padX));
+      bg.setAttribute("y", String(bbox.y - padY));
+      bg.setAttribute("width", String(bbox.width + padX * 2));
+      bg.setAttribute("height", String(bbox.height + padY * 2));
+      bg.setAttribute("rx", "5");
+      bg.setAttribute("ry", "5");
+      bg.setAttribute("class", "world-map-label-bg");
+      labelGroup.insertBefore(bg, text);
     });
 
     svgSelection.call(zoomBehavior.transform, d3.zoomIdentity);
@@ -200,6 +223,12 @@ export function createMapAssistManager({
         return;
       }
       renderWorldMap(worldAssist);
+      return;
+    }
+
+    if (policy === "required") {
+      mapAssistRow.classList.add("hidden");
+      renderWorldMap(worldAssist, { forceVisible: true });
       return;
     }
 

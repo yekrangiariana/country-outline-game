@@ -53,6 +53,13 @@ function buildQuestion(data, rng) {
         message: `Not quite. The answer was ${target.name}.`,
       };
     },
+    reveal() {
+      return {
+        correct: false,
+        points: 0,
+        message: `Revealed. The answer was ${target.name}.`,
+      };
+    },
   };
 }
 

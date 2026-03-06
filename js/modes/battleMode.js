@@ -88,6 +88,29 @@ function buildQuestion(data, rng) {
         message: `${resultPrefix} ${winner.name} has more land borders (${winnerCount} vs ${loserCount}). ${left.name}: ${leftSummary}. ${right.name}: ${rightSummary}.`,
       };
     },
+    reveal() {
+      const leftSummary = formatBorderSummary(left);
+      const rightSummary = formatBorderSummary(right);
+
+      if (answer === "tie") {
+        return {
+          correct: false,
+          points: 0,
+          message: `Revealed. It's a tie: ${left.name} and ${right.name} both have ${leftSummary}.`,
+        };
+      }
+
+      const winner = answer === "left" ? left : right;
+      const loser = answer === "left" ? right : left;
+      const winnerCount = winner?.neighbors?.size || 0;
+      const loserCount = loser?.neighbors?.size || 0;
+
+      return {
+        correct: false,
+        points: 0,
+        message: `Revealed. ${winner.name} has more land borders (${winnerCount} vs ${loserCount}). ${left.name}: ${leftSummary}. ${right.name}: ${rightSummary}.`,
+      };
+    },
   };
 }
 

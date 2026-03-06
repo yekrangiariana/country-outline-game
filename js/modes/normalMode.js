@@ -22,6 +22,13 @@ function buildQuestion(data, rng) {
           : `Wrong. The answer is ${target.name}.`,
       };
     },
+    reveal() {
+      return {
+        correct: false,
+        points: 0,
+        message: `Revealed. The answer is ${target.name}.`,
+      };
+    },
   };
 }
 
