@@ -1,4 +1,4 @@
-import { sample } from "../gameData.js";
+import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
@@ -18,15 +18,7 @@ function formatBorderSummary(country) {
   return `${count} land border${suffix} (${names.join(", ")})`;
 }
 
-function buildQuestion(data, rng) {
-  const left = sample(data.countries, rng);
-  let right = sample(data.countries, rng);
-  let guard = 0;
-  while (right && left && right.iso2 === left.iso2 && guard < 20) {
-    right = sample(data.countries, rng);
-    guard += 1;
-  }
-
+export function createBattleQuestion(left, right) {
   const leftCount = left?.neighbors.size || 0;
   const rightCount = right?.neighbors.size || 0;
   let answer = "tie";
@@ -116,6 +108,7 @@ function buildQuestion(data, rng) {
 
 export function createBattleMode(data, rng = Math.random) {
   let round = 0;
+  const picker = createCyclingPicker(data.countries, rng);
 
   return {
     id: "battle",
@@ -125,8 +118,15 @@ export function createBattleMode(data, rng = Math.random) {
       if (round >= ROUNDS) {
         return null;
       }
+
+      const left = picker.next();
+      const right = picker.nextWhere((country) => country.iso2 !== left?.iso2);
+      if (!left || !right) {
+        return null;
+      }
+
       round += 1;
-      return buildQuestion(data, rng);
+      return createBattleQuestion(left, right);
     },
   };
 }

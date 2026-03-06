@@ -1,10 +1,9 @@
-import { normalize, sample } from "../gameData.js";
+import { normalize } from "../gameData.js";
+import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
-function buildQuestion(data, rng) {
-  const target = sample(data.countries, rng);
-
+export function createNormalQuestion(target) {
   return {
     prompt: "Identify this country outline.",
     hint: "Type the country name.",
@@ -34,6 +33,7 @@ function buildQuestion(data, rng) {
 
 export function createNormalMode(data, rng = Math.random) {
   let round = 0;
+  const picker = createCyclingPicker(data.countries, rng);
 
   return {
     id: "normal",
@@ -44,7 +44,11 @@ export function createNormalMode(data, rng = Math.random) {
         return null;
       }
       round += 1;
-      return buildQuestion(data, rng);
+      const target = picker.next();
+      if (!target) {
+        return null;
+      }
+      return createNormalQuestion(target);
     },
   };
 }

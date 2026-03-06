@@ -1,9 +1,8 @@
-import { sample } from "../gameData.js";
+import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
-function buildQuestion(data, rng) {
-  const target = sample(data.countries, rng);
+export function createMapSelectQuestion(target) {
   let selectedIso2 = null;
 
   const toAssist = () => {
@@ -14,7 +13,8 @@ function buildQuestion(data, rng) {
 
     return {
       highlights,
-      zoomIso2: selectedIso2 ? [selectedIso2] : [],
+      // Keep a stable world camera while choosing to avoid abrupt reprojection.
+      zoomIso2: [],
     };
   };
 
@@ -91,6 +91,7 @@ function buildQuestion(data, rng) {
 
 export function createMapSelectMode(data, rng = Math.random) {
   let round = 0;
+  const picker = createCyclingPicker(data.countries, rng);
 
   return {
     id: "map-select",
@@ -101,7 +102,11 @@ export function createMapSelectMode(data, rng = Math.random) {
         return null;
       }
       round += 1;
-      return buildQuestion(data, rng);
+      const target = picker.next();
+      if (!target) {
+        return null;
+      }
+      return createMapSelectQuestion(target);
     },
   };
 }

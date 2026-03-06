@@ -1,8 +1,9 @@
-import { createSeededRandom, sample } from "../gameData.js";
-import { createBattleMode } from "./battleMode.js";
-import { createMapSelectMode } from "./mapSelectMode.js";
-import { createNormalMode } from "./normalMode.js";
-import { createReverseBorderMode } from "./reverseBorderMode.js";
+import { createSeededRandom } from "../gameData.js";
+import { createBattleQuestion } from "./battleMode.js";
+import { createMapSelectQuestion } from "./mapSelectMode.js";
+import { createNormalQuestion } from "./normalMode.js";
+import { createCyclingPicker } from "./randomCycle.js";
+import { createReverseBorderQuestion } from "./reverseBorderMode.js";
 
 const ROUNDS = 5;
 
@@ -42,24 +43,40 @@ function getQuestionFingerprint(questions) {
 function buildQuestionsForSeed(data, seedText) {
   const rng = createSeededRandom(seedText);
 
-  const normalSession = createNormalMode(data, rng);
-  const reverseBorderSession = createReverseBorderMode(data, rng);
-  const battleSession = createBattleMode(data, rng);
-  const mapSelectSession = createMapSelectMode(data, rng);
+  const allPicker = createCyclingPicker(data.countries, rng);
 
-  const builders = [
-    () => normalSession.nextQuestion(),
-    () => reverseBorderSession.nextQuestion(),
-    () => battleSession.nextQuestion(),
-    () => mapSelectSession.nextQuestion(),
-    () => buildNeighborCountQuestion(data, rng),
+  const normalTarget = allPicker.next();
+  const reverseTarget = allPicker.nextWhere(
+    (country) => country.neighbors.size >= 3,
+  );
+  const battleLeft = allPicker.next();
+  const battleRight = allPicker.nextWhere(
+    (country) => country.iso2 !== battleLeft?.iso2,
+  );
+  const mapTarget = allPicker.next();
+  const neighborTarget = allPicker.next();
+
+  if (
+    !normalTarget ||
+    !reverseTarget ||
+    !battleLeft ||
+    !battleRight ||
+    !mapTarget ||
+    !neighborTarget
+  ) {
+    return [];
+  }
+
+  return [
+    createNormalQuestion(normalTarget),
+    createReverseBorderQuestion(data, reverseTarget, rng),
+    createBattleQuestion(battleLeft, battleRight),
+    createMapSelectQuestion(mapTarget),
+    buildNeighborCountQuestion(neighborTarget),
   ];
-
-  return builders.map((build) => build());
 }
 
-function buildNeighborCountQuestion(data, rng) {
-  const target = sample(data.countries, rng);
+function buildNeighborCountQuestion(target) {
   const count = target.neighbors.size;
 
   return {

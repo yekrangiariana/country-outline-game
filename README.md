@@ -1,4 +1,4 @@
-# Map Mystery
+# Borderlines
 
 A local-first geography game using country outlines and neighboring-country data.
 

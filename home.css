@@ -56,7 +56,12 @@ body.home-view .mode-cards {
 body.home-view .mode-card {
   min-height: 112px;
   padding: 9px;
-  border-radius: 4px;
+  border-radius: 8px;
+}
+
+body.home-view .mode-card .mode-card-icon {
+  width: 32px;
+  height: 32px;
 }
 
 body.home-view .mode-card strong {

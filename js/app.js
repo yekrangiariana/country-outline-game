@@ -21,9 +21,12 @@ import { createMapSelectMode } from "./modes/mapSelectMode.js";
 import { createRegionChainMode } from "./modes/regionChainMode.js";
 import { createReverseBorderMode } from "./modes/reverseBorderMode.js";
 
-const PLAYER_NAME_STORAGE_KEY = "mapMysteryPlayerName";
-const PLAYER_COUNTRY_STORAGE_KEY = "mapMysteryPlayerCountry";
-const COMPETITIVE_PROGRESS_STORAGE_KEY = "mapMysteryCompetitiveProgress";
+const PLAYER_NAME_STORAGE_KEY = "borderlinesPlayerName";
+const PLAYER_COUNTRY_STORAGE_KEY = "borderlinesPlayerCountry";
+const COMPETITIVE_PROGRESS_STORAGE_KEY = "borderlinesCompetitiveProgress";
+const LEGACY_PLAYER_NAME_STORAGE_KEY = "mapMysteryPlayerName";
+const LEGACY_PLAYER_COUNTRY_STORAGE_KEY = "mapMysteryPlayerCountry";
+const LEGACY_COMPETITIVE_PROGRESS_STORAGE_KEY = "mapMysteryCompetitiveProgress";
 const COMPETITIVE_MODE_ID = "daily-puzzle";
 
 const modeCards = document.getElementById("modeCards");
@@ -99,40 +102,46 @@ let competitiveCountdownTimer = null;
 
 const modeCatalog = [
   {
+    id: "daily-puzzle",
+    title: "Competitive Mode",
+    desc: "A daily 5-question challenge with ranked leaderboard scoring.",
+    iconClass: "fa-solid fa-trophy",
+    build: (data) => createDailyPuzzleMode(data),
+  },
+  {
     id: "normal",
     title: "Normal Mode",
     desc: "Classic country-outline guessing mode.",
+    iconClass: "fa-solid fa-earth-americas",
     build: (data) => createNormalMode(data),
   },
   {
     id: "map-select",
     title: "Map Select",
     desc: "Given a country name, click it on the world map and submit.",
+    iconClass: "fa-solid fa-hand-pointer",
     build: (data) => createMapSelectMode(data),
   },
   {
     id: "region-chain",
     title: "Region Chain",
     desc: "Build a valid 4-country border chain between two countries.",
+    iconClass: "fa-solid fa-link",
     build: (data) => createRegionChainMode(data),
   },
   {
     id: "reverse-border",
     title: "Reverse Border",
     desc: "You get neighboring countries as clues. Guess the target country.",
+    iconClass: "fa-solid fa-puzzle-piece",
     build: (data) => createReverseBorderMode(data),
   },
   {
     id: "battle",
     title: "Battle Mode",
     desc: "Two outlines face off. Pick which has more land neighbors.",
+    iconClass: "fa-solid fa-scale-balanced",
     build: (data) => createBattleMode(data),
-  },
-  {
-    id: "daily-puzzle",
-    title: "Competitive Mode",
-    desc: "A daily 5-question challenge with ranked leaderboard scoring.",
-    build: (data) => createDailyPuzzleMode(data),
   },
 ];
 
@@ -356,6 +365,11 @@ function buildFilteredData(data, continent) {
 
 function updateActiveFilterLabel() {
   activeContinentLabel.textContent = `Continent filter: ${state.settings.continent}`;
+  activeContinentLabel.title = "Competitive Mode always uses All continents.";
+}
+
+function getEffectiveContinentForMode(modeId) {
+  return modeId === COMPETITIVE_MODE_ID ? "All" : state.settings.continent;
 }
 
 function setFeedback(message, kind = "") {
@@ -365,7 +379,16 @@ function setFeedback(message, kind = "") {
 
 function loadStoredPlayerName() {
   try {
-    return localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || "";
+    const latest = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
+    if (latest) {
+      return latest;
+    }
+
+    const legacy = localStorage.getItem(LEGACY_PLAYER_NAME_STORAGE_KEY) || "";
+    if (legacy) {
+      localStorage.setItem(PLAYER_NAME_STORAGE_KEY, legacy);
+    }
+    return legacy;
   } catch {
     return "";
   }
@@ -411,9 +434,20 @@ function countryCodeToDisplayName(code) {
 
 function loadStoredPlayerCountry() {
   try {
-    return normalizeCountryCode(
+    const latest = normalizeCountryCode(
       localStorage.getItem(PLAYER_COUNTRY_STORAGE_KEY),
     );
+    if (latest) {
+      return latest;
+    }
+
+    const legacy = normalizeCountryCode(
+      localStorage.getItem(LEGACY_PLAYER_COUNTRY_STORAGE_KEY),
+    );
+    if (legacy) {
+      localStorage.setItem(PLAYER_COUNTRY_STORAGE_KEY, legacy);
+    }
+    return legacy;
   } catch {
     return null;
   }
@@ -421,7 +455,9 @@ function loadStoredPlayerCountry() {
 
 function loadCompetitiveProgress(dayKey) {
   try {
-    const raw = localStorage.getItem(COMPETITIVE_PROGRESS_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(COMPETITIVE_PROGRESS_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_COMPETITIVE_PROGRESS_STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -451,7 +487,7 @@ function loadCompetitiveProgress(dayKey) {
       return null;
     }
 
-    return {
+    const migrated = {
       modeId: COMPETITIVE_MODE_ID,
       dayKey,
       answeredCount: Math.min(answeredCount, maxScore),
@@ -459,6 +495,13 @@ function loadCompetitiveProgress(dayKey) {
       maxScore,
       completed: Boolean(parsed.completed),
     };
+
+    // Normalize stored progress into the new key once loaded.
+    localStorage.setItem(
+      COMPETITIVE_PROGRESS_STORAGE_KEY,
+      JSON.stringify(migrated),
+    );
+    return migrated;
   } catch {
     return null;
   }
@@ -467,6 +510,7 @@ function loadCompetitiveProgress(dayKey) {
 function clearCompetitiveProgress() {
   try {
     localStorage.removeItem(COMPETITIVE_PROGRESS_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_COMPETITIVE_PROGRESS_STORAGE_KEY);
   } catch {
     // Ignore storage failures.
   }
@@ -993,7 +1037,7 @@ async function submitCompetitiveScore(maxScore) {
     displayName: state.playerName,
     score: state.score,
     maxScore,
-    continent: state.settings.continent,
+    continent: "All",
     deviceId: state.deviceId,
     playerCountry: state.playerCountry || detectPlayerCountry(),
   });
@@ -1029,6 +1073,7 @@ function renderModeCards() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mode-card";
+    btn.setAttribute("data-mode-id", mode.id);
 
     const isCompetitive = mode.id === COMPETITIVE_MODE_ID;
     const resumableToday =
@@ -1045,9 +1090,14 @@ function renderModeCards() {
     }
 
     btn.innerHTML = `
-      <span class="mode-card-copy">
-        <strong>${mode.title}</strong>
-        <span>${description}</span>
+      <span class="mode-card-top">
+        <span class="mode-card-icon" aria-hidden="true">
+          <i class="${mode.iconClass || "fa-solid fa-shapes"}"></i>
+        </span>
+        <span class="mode-card-copy">
+          <strong>${mode.title}</strong>
+          <span>${description}</span>
+        </span>
       </span>
     `;
 
@@ -1191,6 +1241,8 @@ function renderInput(input) {
   choiceWrap.classList.add("hidden");
   choiceWrap.classList.remove("docked-choice");
   secondaryActions.classList.remove("hidden");
+  revealBtn.classList.remove("hidden");
+  revealBtn.textContent = "Reveal";
   revealBtn.disabled = false;
   submitBtn.classList.add("hidden");
   chainSubmitBtn.classList.add("hidden");
@@ -1332,7 +1384,9 @@ function showQuestion() {
   promptLabel.textContent = state.currentQuestion.prompt;
   hintLabel.textContent = state.currentQuestion.hint || "";
   applyMapAssistDefault(state.currentQuestion);
-  mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
+  mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted, {
+    resetZoom: true,
+  });
   renderVisuals(state.currentQuestion.visuals || { layout: "none" });
   renderInput(state.currentQuestion.input || { type: "text" });
 }
@@ -1348,6 +1402,10 @@ function submitAnswer(rawAnswer) {
 
 function handleWorldMapSelection(event) {
   if (!state.currentQuestion || state.hasSubmitted) {
+    return;
+  }
+
+  if (mapAssist.shouldIgnoreSelectionEvent()) {
     return;
   }
 
@@ -1497,7 +1555,8 @@ async function startMode(modeId) {
     return;
   }
 
-  state.activeData = buildFilteredData(state.data, state.settings.continent);
+  const effectiveContinent = getEffectiveContinentForMode(modeId);
+  state.activeData = buildFilteredData(state.data, effectiveContinent);
   state.selectedModeId = modeId;
   const competitiveResume =
     modeId === COMPETITIVE_MODE_ID &&
@@ -1569,6 +1628,24 @@ function backToModes() {
 }
 
 openSettingsBtn.addEventListener("click", () => {
+  setSettingsOpen(true);
+});
+
+activeContinentLabel.setAttribute("role", "button");
+activeContinentLabel.setAttribute("tabindex", "0");
+activeContinentLabel.setAttribute(
+  "aria-label",
+  "Open settings and change continent filter",
+);
+activeContinentLabel.addEventListener("click", () => {
+  setSettingsOpen(true);
+});
+activeContinentLabel.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  event.preventDefault();
   setSettingsOpen(true);
 });
 

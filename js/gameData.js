@@ -6,6 +6,10 @@ const MISSING_GEOMETRIES_URL = new URL(
   "../data/missing_geometries.geojson",
   import.meta.url,
 );
+const AUDIT_OVERRIDES_URL = new URL(
+  "../data/geometry_overrides_audit.geojson",
+  import.meta.url,
+);
 const BORDERS_CSV_URL = new URL(
   "../data/GEODATASOURCE-COUNTRY-BORDERS.CSV",
   import.meta.url,
@@ -89,11 +93,13 @@ function hasRenderableGeometry(feature) {
 export async function loadGameData() {
   const d3 = ensureD3();
 
-  const [geoRes, borderRes, supplementalRes] = await Promise.all([
-    fetch(GEOJSON_URL),
-    fetch(BORDERS_CSV_URL),
-    fetch(MISSING_GEOMETRIES_URL),
-  ]);
+  const [geoRes, borderRes, supplementalRes, auditOverrideRes] =
+    await Promise.all([
+      fetch(GEOJSON_URL),
+      fetch(BORDERS_CSV_URL),
+      fetch(MISSING_GEOMETRIES_URL),
+      fetch(AUDIT_OVERRIDES_URL),
+    ]);
 
   if (!geoRes.ok) {
     throw new Error(`Failed to load country outlines: ${geoRes.status}`);
@@ -106,12 +112,19 @@ export async function loadGameData() {
       `Failed to load missing geometries dataset: ${supplementalRes.status}`,
     );
   }
+  if (!auditOverrideRes.ok) {
+    throw new Error(
+      `Failed to load audit override geometry dataset: ${auditOverrideRes.status}`,
+    );
+  }
 
-  const [geojson, borderCsv, supplementalGeojson] = await Promise.all([
-    geoRes.json(),
-    borderRes.text(),
-    supplementalRes.json(),
-  ]);
+  const [geojson, borderCsv, supplementalGeojson, auditOverrideGeojson] =
+    await Promise.all([
+      geoRes.json(),
+      borderRes.text(),
+      supplementalRes.json(),
+      auditOverrideRes.json(),
+    ]);
   const supplementalByIso3 = new Map();
   (supplementalGeojson.features || []).forEach((feature) => {
     const iso3 = (feature?.properties?.ADM0_A3 || "").toUpperCase();
@@ -119,6 +132,15 @@ export async function loadGameData() {
       return;
     }
     supplementalByIso3.set(iso3, feature);
+  });
+
+  const auditOverridesByIso2 = new Map();
+  (auditOverrideGeojson.features || []).forEach((feature) => {
+    const iso2 = (feature?.properties?.ISO_A2 || "").toUpperCase();
+    if (!iso2 || !hasRenderableGeometry(feature)) {
+      return;
+    }
+    auditOverridesByIso2.set(iso2, feature);
   });
   const borderRows = d3.csvParse(borderCsv);
 
@@ -140,6 +162,15 @@ export async function loadGameData() {
     }
 
     let featureForRender = feature;
+
+    const auditOverride = auditOverridesByIso2.get(iso2);
+    if (auditOverride) {
+      featureForRender = {
+        ...feature,
+        geometry: auditOverride.geometry,
+      };
+    }
+
     if (!hasRenderableGeometry(featureForRender) && iso3) {
       const supplemental = supplementalByIso3.get(iso3);
       if (supplemental) {

@@ -1,12 +1,9 @@
-import { normalize, sample, shuffle } from "../gameData.js";
+import { normalize, shuffle } from "../gameData.js";
+import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
-function buildQuestion(data, rng) {
-  const candidates = data.countries.filter(
-    (country) => country.neighbors.size >= 3,
-  );
-  const target = sample(candidates, rng) || sample(data.countries, rng);
+export function createReverseBorderQuestion(data, target, rng) {
   const clueIso2 = shuffle([...target.neighbors], rng).slice(0, 3);
   const clues = clueIso2
     .map((iso2) => data.iso2ToCountry.get(iso2)?.name)
@@ -65,6 +62,13 @@ function buildQuestion(data, rng) {
 
 export function createReverseBorderMode(data, rng = Math.random) {
   let round = 0;
+  const candidates = data.countries.filter(
+    (country) => country.neighbors.size >= 3,
+  );
+  const picker = createCyclingPicker(
+    candidates.length ? candidates : data.countries,
+    rng,
+  );
 
   return {
     id: "reverse-border",
@@ -75,7 +79,11 @@ export function createReverseBorderMode(data, rng = Math.random) {
         return null;
       }
       round += 1;
-      return buildQuestion(data, rng);
+      const target = picker.next();
+      if (!target) {
+        return null;
+      }
+      return createReverseBorderQuestion(data, target, rng);
     },
   };
 }

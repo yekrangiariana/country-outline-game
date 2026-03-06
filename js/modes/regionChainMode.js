@@ -1,12 +1,13 @@
 import { normalize, sample } from "../gameData.js";
+import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
-function buildChainQuestion(data, rng) {
-  const candidates = data.countries.filter((c) => c.neighbors.size >= 2);
-
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const start = sample(candidates, rng);
+function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
+  for (let attempt = 0; attempt < attemptLimit; attempt += 1) {
+    const start = startPicker.nextWhere(
+      (country) => country.neighbors.size >= 2,
+    );
     if (!start) {
       break;
     }
@@ -152,6 +153,7 @@ function buildChainQuestion(data, rng) {
 
 export function createRegionChainMode(data, rng = Math.random) {
   let round = 0;
+  const startPicker = createCyclingPicker(data.countries, rng);
 
   return {
     id: "region-chain",
@@ -162,7 +164,7 @@ export function createRegionChainMode(data, rng = Math.random) {
         return null;
       }
       round += 1;
-      return buildChainQuestion(data, rng);
+      return buildChainQuestion(data, rng, startPicker);
     },
   };
 }

@@ -10,11 +10,14 @@ export function createMapAssistManager({
   let zoomBehavior = null;
   let svgSelection = null;
   let currentViewport = null;
+  let currentTransform = null;
+  let suppressSelectionUntil = 0;
 
   function clearMap() {
     worldMapWrap.classList.add("hidden");
     worldMapSvg.innerHTML = "";
     currentViewport = null;
+    currentTransform = null;
   }
 
   function setViewportTransform(transform) {
@@ -27,6 +30,18 @@ export function createMapAssistManager({
     );
   }
 
+  function noteGesture(event) {
+    const eventType = event?.sourceEvent?.type || "";
+    if (
+      eventType.includes("touch") ||
+      eventType.includes("mouse") ||
+      eventType.includes("pointer") ||
+      eventType === "wheel"
+    ) {
+      suppressSelectionUntil = Date.now() + 220;
+    }
+  }
+
   function ensureZoom(d3) {
     if (zoomBehavior && svgSelection) {
       return;
@@ -35,16 +50,32 @@ export function createMapAssistManager({
     svgSelection = d3.select(worldMapSvg);
     zoomBehavior = d3
       .zoom()
-      .scaleExtent([0.35, 8])
+      .scaleExtent([0.55, 10])
+      .extent([
+        [0, 0],
+        [920, 430],
+      ])
+      .translateExtent([
+        [-240, -180],
+        [1160, 610],
+      ])
+      .on("start", (event) => {
+        noteGesture(event);
+      })
       .on("zoom", (event) => {
+        noteGesture(event);
+        currentTransform = event.transform;
         setViewportTransform(event.transform);
+      })
+      .on("end", () => {
+        suppressSelectionUntil = Date.now() + 120;
       });
 
     svgSelection.call(zoomBehavior).on("dblclick.zoom", null);
   }
 
   function renderWorldMap(worldAssist = null, options = {}) {
-    const { forceVisible = false } = options;
+    const { forceVisible = false, resetZoom = false } = options;
     if (!forceVisible && !mapAssistToggle.checked) {
       clearMap();
       return;
@@ -83,6 +114,8 @@ export function createMapAssistManager({
     };
 
     const projection = d3.geoNaturalEarth1();
+    // Smaller precision keeps coastlines smoother when users zoom deeply.
+    projection.precision(0.2);
     const fitTarget = focusedFeatures.length
       ? focusCollection
       : featureCollection;
@@ -140,6 +173,8 @@ export function createMapAssistManager({
           ? " focus"
           : "";
       p.setAttribute("class", `world-country${roleClass}`);
+      p.setAttribute("vector-effect", "non-scaling-stroke");
+      p.setAttribute("shape-rendering", "geometricPrecision");
       currentViewport.appendChild(p);
       centroidByIso2.set(country.iso2, path.centroid(country.feature));
     });
@@ -202,10 +237,15 @@ export function createMapAssistManager({
       labelGroup.insertBefore(bg, text);
     });
 
-    svgSelection.call(zoomBehavior.transform, d3.zoomIdentity);
+    if (!currentTransform || resetZoom) {
+      currentTransform = d3.zoomIdentity;
+    }
+
+    svgSelection.call(zoomBehavior.transform, currentTransform);
   }
 
-  function renderWorldAssist(question, hasSubmitted = false) {
+  function renderWorldAssist(question, hasSubmitted = false, options = {}) {
+    const { resetZoom = false } = options;
     const fallbackFocus = question?.worldFocusIso2 || [];
     const worldAssist = question?.worldAssist || { zoomIso2: fallbackFocus };
     const policy = question?.mapAssistPolicy || "optional";
@@ -228,12 +268,16 @@ export function createMapAssistManager({
 
     if (policy === "required") {
       mapAssistRow.classList.add("hidden");
-      renderWorldMap(worldAssist, { forceVisible: true });
+      renderWorldMap(worldAssist, { forceVisible: true, resetZoom });
       return;
     }
 
     mapAssistRow.classList.remove("hidden");
-    renderWorldMap(worldAssist);
+    renderWorldMap(worldAssist, { resetZoom });
+  }
+
+  function shouldIgnoreSelectionEvent() {
+    return Date.now() < suppressSelectionUntil;
   }
 
   mapZoomInBtn.addEventListener("click", () => {
@@ -257,5 +301,6 @@ export function createMapAssistManager({
 
   return {
     renderWorldAssist,
+    shouldIgnoreSelectionEvent,
   };
 }

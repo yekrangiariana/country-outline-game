@@ -178,6 +178,17 @@ body.name-modal-open {
   font-size: 0.85rem;
   border-left: 3px solid var(--accent);
   padding-left: 8px;
+  cursor: pointer;
+}
+
+.active-filter:hover {
+  color: var(--ink);
+}
+
+.active-filter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .settings-panel {
@@ -368,6 +379,13 @@ body.name-modal-open {
   flex-wrap: wrap;
 }
 
+.settings-note {
+  margin: 6px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .mode-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -376,19 +394,42 @@ body.name-modal-open {
 
 .mode-card {
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 10px;
+  background: linear-gradient(170deg, #ffffff, #fbfbf8);
   color: var(--ink);
   text-align: left;
-  padding: 10px;
+  padding: 11px;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 9px;
   align-items: start;
   cursor: pointer;
   transition:
+    transform 140ms ease,
     border-color 110ms ease,
-    background-color 110ms ease;
+    background-color 110ms ease,
+    box-shadow 140ms ease;
+}
+
+.mode-card-top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+  align-items: start;
+}
+
+.mode-card-icon {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(201, 77, 16, 0.28);
+  border-radius: 8px;
+  background: rgba(242, 106, 33, 0.09);
+  color: #a44712;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.94rem;
+  line-height: 1;
 }
 
 .mode-card-copy {
@@ -409,7 +450,9 @@ body.name-modal-open {
 
 .mode-card:hover {
   border-color: var(--accent);
-  background: #fffaf7;
+  background: linear-gradient(170deg, #fffdf8, #fff4ec);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 .mode-card.locked {
@@ -534,6 +577,8 @@ body.name-modal-open {
   height: auto;
   display: block;
   cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #worldMapSvg:active {
@@ -544,6 +589,10 @@ body.name-modal-open {
   fill: #e7e7e3;
   stroke: #9d9d99;
   stroke-width: 0.65;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
 }
 
 .world-country[data-iso2] {

@@ -5,7 +5,8 @@ const TABLE_NAME = "leaderboard_scores";
 const MODE_ID = "daily-puzzle";
 const NAME_MIN = 3;
 const NAME_MAX = 16;
-const DEVICE_ID_STORAGE_KEY = "mapMysteryDeviceId";
+const DEVICE_ID_STORAGE_KEY = "borderlinesDeviceId";
+const LEGACY_DEVICE_ID_STORAGE_KEY = "mapMysteryDeviceId";
 
 let regionNameToCodeLookup = null;
 
@@ -85,22 +86,24 @@ function getClient() {
 
 export function getTodayDayKey() {
   const now = new Date();
-  const yyyy = String(now.getFullYear());
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
+  const yyyy = String(now.getUTCFullYear());
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(now.getUTCDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
 export function getNextLocalMidnightDate() {
   const now = new Date();
   return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1,
-    0,
-    0,
-    0,
-    0,
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0,
+    ),
   );
 }
 
@@ -155,6 +158,12 @@ export function getOrCreateDeviceId() {
     const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
     if (existing) {
       return existing;
+    }
+
+    const legacy = localStorage.getItem(LEGACY_DEVICE_ID_STORAGE_KEY);
+    if (legacy) {
+      localStorage.setItem(DEVICE_ID_STORAGE_KEY, legacy);
+      return legacy;
     }
 
     const generated =
