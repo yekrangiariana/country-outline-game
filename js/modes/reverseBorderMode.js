@@ -1,4 +1,5 @@
 import { normalize, shuffle } from "../gameData.js";
+import { formatCountryWithFlag } from "../countryDisplay.js";
 import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
@@ -6,8 +7,12 @@ const ROUNDS = 10;
 export function createReverseBorderQuestion(data, target, rng) {
   const clueIso2 = shuffle([...target.neighbors], rng).slice(0, 3);
   const clues = clueIso2
-    .map((iso2) => data.iso2ToCountry.get(iso2)?.name)
+    .map((iso2) => {
+      const country = data.iso2ToCountry.get(iso2);
+      return country ? formatCountryWithFlag(country.name, country.iso2) : "";
+    })
     .filter(Boolean);
+  const targetLabel = formatCountryWithFlag(target.name, target.iso2);
   const clueItems = clueIso2
     .map((iso2) => data.iso2ToCountry.get(iso2))
     .filter(Boolean)
@@ -15,13 +20,17 @@ export function createReverseBorderQuestion(data, target, rng) {
       label: country.name,
       feature: country.feature,
     }));
+  clueItems.push({
+    label: "Answer",
+    isUnknown: true,
+  });
 
   return {
     prompt: `Which country borders all of these countries: ${clues.join(", ")}?`,
-    hint: "The clue-country outlines are shown below. Turn on map assist for an easier zoomed map view.",
+    hint: "The clue-country outlines are shown below. Toggle map assist on if you want extra help.",
     input: { type: "text", placeholder: "Type country" },
     visuals: { layout: "multi", items: clueItems },
-    mapAssistDefaultOn: true,
+    mapAssistDefaultOn: false,
     worldAssist: {
       highlights: [
         ...clueIso2.map((iso2) => ({ iso2, role: "clue" })),
@@ -40,21 +49,21 @@ export function createReverseBorderQuestion(data, target, rng) {
         return {
           correct: true,
           points: 1,
-          message: `Correct. The country was ${target.name}.`,
+          message: `Correct. The country was ${targetLabel}.`,
         };
       }
 
       return {
         correct: false,
         points: 0,
-        message: `Not quite. The answer was ${target.name}.`,
+        message: `Not quite. The answer was ${targetLabel}.`,
       };
     },
     reveal() {
       return {
         correct: false,
         points: 0,
-        message: `Revealed. The answer was ${target.name}.`,
+        message: `Revealed. The answer was ${targetLabel}.`,
       };
     },
   };

@@ -10,17 +10,24 @@ export function createMapAssistManager({
   let zoomBehavior = null;
   let svgSelection = null;
   let currentViewport = null;
+  let fixedLabelHost = null;
   let currentTransform = null;
   let suppressSelectionUntil = 0;
   let zoomFrameId = 0;
   let pendingTransform = null;
   let zoomingClassTimer = null;
   let gestureNeedsSelectionSuppression = false;
+  let gestureStartTransform = null;
+  let gestureType = "";
+  let isUserGestureActive = false;
 
   function clearMap() {
     worldMapWrap.classList.add("hidden");
     worldMapSvg.innerHTML = "";
     currentViewport = null;
+    if (fixedLabelHost) {
+      fixedLabelHost.innerHTML = "";
+    }
     currentTransform = null;
     pendingTransform = null;
     worldMapSvg.classList.remove("is-zooming");
@@ -42,6 +49,62 @@ export function createMapAssistManager({
       "transform",
       `translate(${transform.x},${transform.y}) scale(${transform.k})`,
     );
+    applyLabelScaleCompensation(transform.k);
+  }
+
+  function ensureFixedLabelHost() {
+    if (fixedLabelHost) {
+      return fixedLabelHost;
+    }
+
+    const host = document.createElement("div");
+    host.className = "world-map-fixed-labels";
+    worldMapWrap.appendChild(host);
+    fixedLabelHost = host;
+    return fixedLabelHost;
+  }
+
+  function renderFixedLabels(worldAssist = null) {
+    const host = ensureFixedLabelHost();
+    host.innerHTML = "";
+
+    const labels = Array.isArray(worldAssist?.fixedLabels)
+      ? worldAssist.fixedLabels
+      : [];
+    labels.forEach((entry) => {
+      const text = typeof entry === "string" ? entry : entry?.text;
+      if (!text) {
+        return;
+      }
+
+      const chip = document.createElement("div");
+      chip.className = "world-map-fixed-label";
+      chip.textContent = text;
+      host.appendChild(chip);
+    });
+  }
+
+  function applyLabelScaleCompensation(zoomScale) {
+    if (!currentViewport) {
+      return;
+    }
+
+    const safeScale =
+      Number.isFinite(zoomScale) && zoomScale > 0 ? zoomScale : 1;
+    const keepSize = 1 / safeScale;
+    const tags = currentViewport.querySelectorAll(".world-map-label-tag");
+    tags.forEach((tag) => {
+      const anchorX = Number.parseFloat(
+        tag.getAttribute("data-anchor-x") || "0",
+      );
+      const anchorY = Number.parseFloat(
+        tag.getAttribute("data-anchor-y") || "0",
+      );
+      tag.setAttribute(
+        "transform",
+        `translate(${anchorX},${anchorY}) scale(${keepSize}) translate(${-anchorX},${-anchorY})`,
+      );
+    });
   }
 
   function noteGesture(event) {
@@ -49,9 +112,19 @@ export function createMapAssistManager({
     const isTouchGesture = eventType.includes("touch");
     const isWheelGesture = eventType === "wheel";
     if (isTouchGesture || isWheelGesture) {
-      gestureNeedsSelectionSuppression = true;
-      suppressSelectionUntil = Date.now() + 220;
+      gestureType = isTouchGesture ? "touch" : "wheel";
     }
+  }
+
+  function hasMeaningfulTransformDelta(nextTransform) {
+    if (!gestureStartTransform || !nextTransform) {
+      return false;
+    }
+
+    const dx = Math.abs(nextTransform.x - gestureStartTransform.x);
+    const dy = Math.abs(nextTransform.y - gestureStartTransform.y);
+    const dk = Math.abs(nextTransform.k - gestureStartTransform.k);
+    return dx > 2 || dy > 2 || dk > 0.01;
   }
 
   function setZoomingVisualState(active) {
@@ -96,29 +169,54 @@ export function createMapAssistManager({
     zoomBehavior = d3
       .zoom()
       .scaleExtent([0.55, 10])
+      // Keep map movement unconstrained so reveal states never feel locked.
+      .constrain((transform) => transform)
       .extent([
         [0, 0],
         [920, 430],
       ])
       .translateExtent([
-        [-240, -180],
-        [1160, 610],
+        [-2200, -1600],
+        [3120, 2230],
       ])
       .on("start", (event) => {
+        isUserGestureActive = Boolean(event?.sourceEvent);
         gestureNeedsSelectionSuppression = false;
-        noteGesture(event);
-        setZoomingVisualState(true);
+        gestureType = "";
+        gestureStartTransform = event.transform;
+        if (isUserGestureActive) {
+          noteGesture(event);
+        }
       })
       .on("zoom", (event) => {
-        noteGesture(event);
+        if (isUserGestureActive) {
+          noteGesture(event);
+          if (!gestureNeedsSelectionSuppression) {
+            gestureNeedsSelectionSuppression = hasMeaningfulTransformDelta(
+              event.transform,
+            );
+            if (gestureNeedsSelectionSuppression) {
+              setZoomingVisualState(true);
+            }
+          }
+        }
         currentTransform = event.transform;
         scheduleViewportTransform(event.transform);
       })
       .on("end", () => {
-        if (gestureNeedsSelectionSuppression) {
+        if (
+          isUserGestureActive &&
+          gestureNeedsSelectionSuppression &&
+          (gestureType === "touch" || gestureType === "wheel")
+        ) {
           suppressSelectionUntil = Date.now() + 120;
         }
-        setZoomingVisualState(false);
+        gestureStartTransform = null;
+        gestureType = "";
+        if (isUserGestureActive && gestureNeedsSelectionSuppression) {
+          setZoomingVisualState(false);
+        }
+        isUserGestureActive = false;
       });
 
     svgSelection.call(zoomBehavior).on("dblclick.zoom", null);
@@ -132,6 +230,7 @@ export function createMapAssistManager({
     }
 
     worldMapWrap.classList.remove("hidden");
+    renderFixedLabels(worldAssist);
 
     const d3 = globalThis.d3;
     const sourceData = getSourceData();
@@ -143,6 +242,7 @@ export function createMapAssistManager({
     ensureZoom(d3);
 
     const zoomIso2 = worldAssist?.zoomIso2 || [];
+    const focusStrength = worldAssist?.focusStrength || "default";
     const focusSet = new Set((zoomIso2 || []).filter(Boolean));
     const roleByIso2 = new Map();
     (worldAssist?.highlights || []).forEach((item) => {
@@ -166,19 +266,44 @@ export function createMapAssistManager({
     const projection = d3.geoNaturalEarth1();
     // Smaller precision keeps coastlines smoother when users zoom deeply.
     projection.precision(0.35);
-    const fitTarget = focusedFeatures.length
-      ? focusCollection
-      : featureCollection;
-    const fitExtent = focusedFeatures.length
-      ? [
-          [92, 54],
-          [828, 372],
-        ]
-      : [
-          [56, 30],
-          [864, 400],
-        ];
-    projection.fitExtent(fitExtent, fitTarget);
+    const worldExtent = [
+      [56, 30],
+      [864, 400],
+    ];
+
+    const useSoftSingleFocus =
+      focusedFeatures.length === 1 && focusStrength === "soft";
+
+    if (useSoftSingleFocus) {
+      projection.fitExtent(worldExtent, featureCollection);
+      const baseScale = projection.scale();
+      const isMobileView =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 780px)").matches;
+      const targetScale = baseScale * (isMobileView ? 2.8 : 2.25);
+      projection.scale(targetScale);
+
+      const center = d3.geoCentroid(focusedFeatures[0]);
+      const projectedCenter = projection(center);
+      if (Array.isArray(projectedCenter)) {
+        const [currentTx, currentTy] = projection.translate();
+        projection.translate([
+          currentTx + (460 - projectedCenter[0]),
+          currentTy + (215 - projectedCenter[1]),
+        ]);
+      }
+    } else {
+      const fitTarget = focusedFeatures.length
+        ? focusCollection
+        : featureCollection;
+      const fitExtent = focusedFeatures.length
+        ? [
+            [92, 54],
+            [828, 372],
+          ]
+        : worldExtent;
+      projection.fitExtent(fitExtent, fitTarget);
+    }
     const path = d3.geoPath(projection);
 
     worldMapSvg.innerHTML = "";
@@ -247,6 +372,24 @@ export function createMapAssistManager({
       currentViewport.appendChild(line);
     }
 
+    const distanceLinkIso2 = worldAssist?.distanceLinkIso2 || [];
+    if (distanceLinkIso2.length === 2) {
+      const from = centroidByIso2.get(distanceLinkIso2[0]);
+      const to = centroidByIso2.get(distanceLinkIso2[1]);
+      if (from && to) {
+        const distanceLine = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line",
+        );
+        distanceLine.setAttribute("x1", String(from[0]));
+        distanceLine.setAttribute("y1", String(from[1]));
+        distanceLine.setAttribute("x2", String(to[0]));
+        distanceLine.setAttribute("y2", String(to[1]));
+        distanceLine.setAttribute("class", "world-distance-line");
+        currentViewport.appendChild(distanceLine);
+      }
+    }
+
     (worldAssist?.labels || []).forEach((entry) => {
       const xy = centroidByIso2.get(entry.iso2);
       if (!xy) {
@@ -258,6 +401,8 @@ export function createMapAssistManager({
         "g",
       );
       labelGroup.setAttribute("class", "world-map-label-tag");
+      labelGroup.setAttribute("data-anchor-x", String(xy[0]));
+      labelGroup.setAttribute("data-anchor-y", String(xy[1]));
 
       const text = document.createElementNS(
         "http://www.w3.org/2000/svg",
@@ -290,6 +435,7 @@ export function createMapAssistManager({
     }
 
     svgSelection.call(zoomBehavior.transform, currentTransform);
+    applyLabelScaleCompensation(currentTransform.k);
   }
 
   function renderWorldAssist(question, hasSubmitted = false, options = {}) {
@@ -333,7 +479,8 @@ export function createMapAssistManager({
     if (!d3 || !svgSelection || !zoomBehavior) {
       return;
     }
-    svgSelection.transition().duration(140).call(zoomBehavior.scaleBy, 1.35);
+    svgSelection.interrupt();
+    svgSelection.call(zoomBehavior.scaleBy, 1.24);
   });
 
   mapZoomOutBtn.addEventListener("click", () => {
@@ -341,10 +488,8 @@ export function createMapAssistManager({
     if (!d3 || !svgSelection || !zoomBehavior) {
       return;
     }
-    svgSelection
-      .transition()
-      .duration(140)
-      .call(zoomBehavior.scaleBy, 1 / 1.35);
+    svgSelection.interrupt();
+    svgSelection.call(zoomBehavior.scaleBy, 1 / 1.24);
   });
 
   return {

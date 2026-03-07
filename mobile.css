@@ -207,14 +207,35 @@
   }
 
   #worldMapSvg {
-    min-height: clamp(220px, 32dvh, 360px);
-    max-height: 42dvh;
+    min-height: clamp(280px, 48dvh, 520px);
+    max-height: 58dvh;
+  }
+
+  .world-map-label {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .world-map-label-bg {
+    stroke-width: 1.1;
   }
 
   .map-controls {
     right: 8px;
     top: 8px;
     gap: 6px;
+  }
+
+  .world-map-fixed-labels {
+    left: 8px;
+    top: 8px;
+    gap: 5px;
+    max-width: min(72%, 300px);
+  }
+
+  .world-map-fixed-label {
+    font-size: 0.72rem;
+    padding: 3px 8px;
   }
 
   .map-control-btn {
@@ -347,7 +368,8 @@
 }
 
 @media (max-width: 420px) {
-  .header h1 {
+  .header h1,
+  .header-mode-label {
     font-size: 1.14rem;
   }
 
@@ -367,8 +389,12 @@
   }
 
   #worldMapSvg {
-    min-height: clamp(200px, 30dvh, 300px);
-    max-height: 38dvh;
+    min-height: clamp(250px, 44dvh, 420px);
+    max-height: 54dvh;
+  }
+
+  .world-map-label {
+    font-size: 15px;
   }
 
   #outlineSvg,

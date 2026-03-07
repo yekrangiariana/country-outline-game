@@ -1,9 +1,12 @@
 import { normalize } from "../gameData.js";
+import { formatCountryWithFlag } from "../countryDisplay.js";
 import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
 
 export function createNormalQuestion(target) {
+  const targetLabel = formatCountryWithFlag(target.name, target.iso2);
+
   return {
     prompt: "Identify this country outline.",
     hint: "Type the country name.",
@@ -17,15 +20,15 @@ export function createNormalQuestion(target) {
         correct,
         points: correct ? 1 : 0,
         message: correct
-          ? `Correct. It is ${target.name}.`
-          : `Wrong. The answer is ${target.name}.`,
+          ? `Correct. It is ${targetLabel}.`
+          : `Wrong. The answer is ${targetLabel}.`,
       };
     },
     reveal() {
       return {
         correct: false,
         points: 0,
-        message: `Revealed. The answer is ${target.name}.`,
+        message: `Revealed. The answer is ${targetLabel}.`,
       };
     },
   };

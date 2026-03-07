@@ -1,4 +1,5 @@
 import { createCyclingPicker } from "./randomCycle.js";
+import { formatCountryWithFlag } from "../countryDisplay.js";
 
 const ROUNDS = 10;
 
@@ -21,6 +22,8 @@ function formatBorderSummary(country) {
 export function createBattleQuestion(left, right) {
   const leftCount = left?.neighbors.size || 0;
   const rightCount = right?.neighbors.size || 0;
+  const leftLabel = formatCountryWithFlag(left?.name, left?.iso2);
+  const rightLabel = formatCountryWithFlag(right?.name, right?.iso2);
   let answer = "tie";
   if (leftCount > rightCount) {
     answer = "left";
@@ -29,7 +32,7 @@ export function createBattleQuestion(left, right) {
   }
 
   return {
-    prompt: `Which country has more land borders, ${left.name} or ${right.name}?`,
+    prompt: `Which country has more land borders, ${leftLabel} or ${rightLabel}?`,
     hint: "Pick the country with more land borders, or Tie.",
     input: {
       type: "choice",
@@ -57,12 +60,13 @@ export function createBattleQuestion(left, right) {
         return {
           correct: ok,
           points: ok ? 1 : 0,
-          message: `${resultPrefix} It's a tie: ${left.name} and ${right.name} both have ${leftSummary}.`,
+          message: `${resultPrefix} It's a tie: ${leftLabel} and ${rightLabel} both have ${leftSummary}.`,
         };
       }
 
       const winner = answer === "left" ? left : right;
       const loser = answer === "left" ? right : left;
+      const winnerLabel = answer === "left" ? leftLabel : rightLabel;
       const winnerCount = winner?.neighbors?.size || 0;
       const loserCount = loser?.neighbors?.size || 0;
 
@@ -70,14 +74,14 @@ export function createBattleQuestion(left, right) {
         return {
           correct: true,
           points: 1,
-          message: `${resultPrefix} ${winner.name} has more land borders (${winnerCount} vs ${loserCount}). ${left.name}: ${leftSummary}. ${right.name}: ${rightSummary}.`,
+          message: `${resultPrefix} ${winnerLabel} has more land borders (${winnerCount} vs ${loserCount}). ${leftLabel}: ${leftSummary}. ${rightLabel}: ${rightSummary}.`,
         };
       }
 
       return {
         correct: false,
         points: 0,
-        message: `${resultPrefix} ${winner.name} has more land borders (${winnerCount} vs ${loserCount}). ${left.name}: ${leftSummary}. ${right.name}: ${rightSummary}.`,
+        message: `${resultPrefix} ${winnerLabel} has more land borders (${winnerCount} vs ${loserCount}). ${leftLabel}: ${leftSummary}. ${rightLabel}: ${rightSummary}.`,
       };
     },
     reveal() {
@@ -88,19 +92,20 @@ export function createBattleQuestion(left, right) {
         return {
           correct: false,
           points: 0,
-          message: `Revealed. It's a tie: ${left.name} and ${right.name} both have ${leftSummary}.`,
+          message: `Revealed. It's a tie: ${leftLabel} and ${rightLabel} both have ${leftSummary}.`,
         };
       }
 
       const winner = answer === "left" ? left : right;
       const loser = answer === "left" ? right : left;
+      const winnerLabel = answer === "left" ? leftLabel : rightLabel;
       const winnerCount = winner?.neighbors?.size || 0;
       const loserCount = loser?.neighbors?.size || 0;
 
       return {
         correct: false,
         points: 0,
-        message: `Revealed. ${winner.name} has more land borders (${winnerCount} vs ${loserCount}). ${left.name}: ${leftSummary}. ${right.name}: ${rightSummary}.`,
+        message: `Revealed. ${winnerLabel} has more land borders (${winnerCount} vs ${loserCount}). ${leftLabel}: ${leftSummary}. ${rightLabel}: ${rightSummary}.`,
       };
     },
   };

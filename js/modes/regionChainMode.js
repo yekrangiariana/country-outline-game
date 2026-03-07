@@ -1,4 +1,5 @@
 import { normalize, sample } from "../gameData.js";
+import { formatCountryWithFlag } from "../countryDisplay.js";
 import { createCyclingPicker } from "./randomCycle.js";
 
 const ROUNDS = 10;
@@ -37,11 +38,15 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
     }
 
     const expectedMiddleCount = 2;
+    const startLabel = formatCountryWithFlag(start.name, start.iso2);
+    const mid1Label = formatCountryWithFlag(mid1.name, mid1.iso2);
+    const mid2Label = formatCountryWithFlag(mid2.name, mid2.iso2);
+    const endLabel = formatCountryWithFlag(end.name, end.iso2);
     const correctPair = `${mid1.name}, ${mid2.name}`;
 
     return {
-      prompt: `Fill in the two missing countries: ${start.name} -> ? -> ? -> ${end.name}`,
-      hint: "Type the two middle countries in order. Their outlines will preview as you type.",
+      prompt: `Fill in the two missing countries: ${startLabel} -> ? -> ? -> ${endLabel}`,
+      hint: "Type the two middle countries in order.",
       input: {
         type: "chain-builder",
         placeholders: ["First middle country", "Second middle country"],
@@ -105,24 +110,26 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
           m2 !== start.iso2;
 
         if (valid) {
+          const part1Label = formatCountryWithFlag(parts[0], m1);
+          const part2Label = formatCountryWithFlag(parts[1], m2);
           return {
             correct: true,
             points: 1,
-            message: `Nice chain. ${start.name} -> ${parts[0]} -> ${parts[1]} -> ${end.name}`,
+            message: `Nice chain. ${startLabel} -> ${part1Label} -> ${part2Label} -> ${endLabel}`,
           };
         }
 
         return {
           correct: false,
           points: 0,
-          message: `Wrong. A valid chain is ${start.name} -> ${mid1.name} -> ${mid2.name} -> ${end.name}.`,
+          message: `Wrong. A valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
         };
       },
       reveal() {
         return {
           correct: false,
           points: 0,
-          message: `Revealed. A valid chain is ${start.name} -> ${mid1.name} -> ${mid2.name} -> ${end.name}.`,
+          message: `Revealed. A valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
         };
       },
     };

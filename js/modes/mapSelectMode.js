@@ -1,9 +1,25 @@
 import { createCyclingPicker } from "./randomCycle.js";
+import { createCountryDistanceLookup } from "../geoEducation.js";
+import { formatCountryWithFlag } from "../countryDisplay.js";
 
 const ROUNDS = 10;
 
-export function createMapSelectQuestion(target) {
+export function createMapSelectQuestion(
+  target,
+  iso2ToCountry = null,
+  distanceLookup = null,
+) {
   let selectedIso2 = null;
+
+  const countryNameFromIso2 = (iso2) => {
+    const cleanIso2 = String(iso2 || "").toUpperCase();
+    if (!cleanIso2 || !iso2ToCountry?.get) {
+      return cleanIso2 || "that country";
+    }
+    return iso2ToCountry.get(cleanIso2)?.name || cleanIso2;
+  };
+
+  const targetLabel = formatCountryWithFlag(target.name, target.iso2);
 
   const toAssist = () => {
     const highlights = [];
@@ -19,7 +35,7 @@ export function createMapSelectQuestion(target) {
   };
 
   return {
-    prompt: `Find ${target.name} on the world map and select it.`,
+    prompt: `Find ${targetLabel} on the world map and select it.`,
     hint: "Tap or click a country on the map, then press Submit.",
     input: { type: "map-select", placeholder: "Click a country on the map" },
     visuals: { layout: "none" },
@@ -48,6 +64,7 @@ export function createMapSelectQuestion(target) {
         this.worldAssist = {
           highlights: [{ iso2: target.iso2, role: "answer" }],
           zoomIso2: [target.iso2],
+          focusStrength: "soft",
           labels: [{ iso2: target.iso2, text: "Correct" }],
         };
 
@@ -63,20 +80,35 @@ export function createMapSelectQuestion(target) {
           { iso2: target.iso2, role: "answer" },
           { iso2: selected, role: "clue" },
         ],
-        zoomIso2: [target.iso2],
+        zoomIso2: [selected, target.iso2],
+        focusStrength: "soft",
+        distanceLinkIso2: [selected, target.iso2],
         labels: [{ iso2: target.iso2, text: `Answer: ${target.name}` }],
       };
+
+      const selectedName = countryNameFromIso2(selected);
+      const selectedLabel = formatCountryWithFlag(selectedName, selected);
+      const answerLabel = formatCountryWithFlag(target.name, target.iso2);
+      const distanceKm = distanceLookup?.getDistanceKm(selected, target.iso2);
+      if (Number.isFinite(distanceKm)) {
+        this.worldAssist.fixedLabels = [
+          `Distance: ${distanceKm.toLocaleString()} km`,
+        ];
+      }
 
       return {
         correct: false,
         points: 0,
-        message: `Not quite. The answer is ${target.name}. Move around the map to inspect the location, then press Next.`,
+        message: Number.isFinite(distanceKm)
+          ? `Not quite. You chose ${selectedLabel}. You are ${distanceKm.toLocaleString()} km off, and ${answerLabel} is here.`
+          : `Not quite. You chose ${selectedLabel}, and ${answerLabel} is here.`,
       };
     },
     reveal() {
       this.worldAssist = {
         highlights: [{ iso2: target.iso2, role: "answer" }],
         zoomIso2: [target.iso2],
+        focusStrength: "soft",
         labels: [{ iso2: target.iso2, text: `Answer: ${target.name}` }],
       };
 
@@ -92,6 +124,7 @@ export function createMapSelectQuestion(target) {
 export function createMapSelectMode(data, rng = Math.random) {
   let round = 0;
   const picker = createCyclingPicker(data.countries, rng);
+  const distanceLookup = createCountryDistanceLookup(data.iso2ToCountry);
 
   return {
     id: "map-select",
@@ -106,7 +139,11 @@ export function createMapSelectMode(data, rng = Math.random) {
       if (!target) {
         return null;
       }
-      return createMapSelectQuestion(target);
+      return createMapSelectQuestion(
+        target,
+        data.iso2ToCountry,
+        distanceLookup,
+      );
     },
   };
 }

@@ -14,6 +14,7 @@ import {
   submitDailyScore,
 } from "./leaderboard.js";
 import { generateFunnyName } from "./nameGenerator.js";
+import { countryCodeToFlagEmoji } from "./countryDisplay.js";
 import { createBattleMode } from "./modes/battleMode.js";
 import { createDailyPuzzleMode } from "./modes/dailyPuzzleMode.js";
 import { createNormalMode } from "./modes/normalMode.js";
@@ -24,6 +25,7 @@ import { createReverseBorderMode } from "./modes/reverseBorderMode.js";
 const PLAYER_NAME_STORAGE_KEY = "borderlinesPlayerName";
 const PLAYER_COUNTRY_STORAGE_KEY = "borderlinesPlayerCountry";
 const COMPETITIVE_PROGRESS_STORAGE_KEY = "borderlinesCompetitiveProgress";
+const MAP_ASSIST_PREFS_STORAGE_KEY = "borderlinesMapAssistPrefs";
 const LEGACY_PLAYER_NAME_STORAGE_KEY = "mapMysteryPlayerName";
 const LEGACY_PLAYER_COUNTRY_STORAGE_KEY = "mapMysteryPlayerCountry";
 const LEGACY_COMPETITIVE_PROGRESS_STORAGE_KEY = "mapMysteryCompetitiveProgress";
@@ -34,6 +36,7 @@ const outlineBackdrop = document.getElementById("outlineBackdrop");
 const topNavRow = document.getElementById("topNavRow");
 const headerDescription = document.getElementById("headerDescription");
 const headerMeta = document.getElementById("headerMeta");
+const headerModeLabel = document.getElementById("headerModeLabel");
 const modeSelect = document.getElementById("modeSelect");
 const openSettingsBtn = document.getElementById("openSettingsBtn");
 const settingsOverlay = document.getElementById("settingsOverlay");
@@ -99,6 +102,7 @@ const backToModesBtn = document.getElementById("backToModesBtn");
 
 let resolveNamePrompt = null;
 let competitiveCountdownTimer = null;
+let mapPointerStart = null;
 
 const modeCatalog = [
   {
@@ -172,6 +176,51 @@ const state = {
 
 let backdropRenderTimer = null;
 
+function loadMapAssistPrefs() {
+  try {
+    const raw = localStorage.getItem(MAP_ASSIST_PREFS_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function readMapAssistPref(modeId) {
+  const prefs = loadMapAssistPrefs();
+  return typeof prefs?.[modeId] === "boolean" ? prefs[modeId] : null;
+}
+
+function writeMapAssistPref(modeId, enabled) {
+  if (!modeId || typeof enabled !== "boolean") {
+    return;
+  }
+
+  try {
+    const prefs = loadMapAssistPrefs();
+    prefs[modeId] = enabled;
+    localStorage.setItem(MAP_ASSIST_PREFS_STORAGE_KEY, JSON.stringify(prefs));
+  } catch (error) {
+    // Ignore storage failures (private mode/quota limits).
+  }
+}
+
+function resolveMapAssistDefaultForMode(modeId) {
+  if (modeId === "region-chain") {
+    return true;
+  }
+
+  if (modeId === "reverse-border") {
+    const saved = readMapAssistPref(modeId);
+    return saved ?? false;
+  }
+
+  return false;
+}
+
 const mapAssist = createMapAssistManager({
   mapAssistRow,
   mapAssistToggle,
@@ -189,6 +238,17 @@ function setHomeViewClass(enabled) {
 function setHeaderGameMeta(enabled) {
   headerDescription.classList.toggle("hidden", enabled);
   headerMeta.classList.toggle("hidden", !enabled);
+  document.body.classList.toggle("in-mode", enabled);
+}
+
+function setHeaderModeLabel(modeName = "") {
+  if (!headerModeLabel) {
+    return;
+  }
+
+  const clean = String(modeName || "").trim();
+  headerModeLabel.textContent = clean;
+  headerModeLabel.classList.toggle("hidden", !clean);
 }
 
 function setSettingsOpen(enabled) {
@@ -712,17 +772,6 @@ function formatCountdown(ms) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-function countryCodeToFlagEmoji(countryCode) {
-  const clean = String(countryCode || "").toUpperCase();
-  if (!/^[A-Z]{2}$/.test(clean)) {
-    return "";
-  }
-
-  const first = clean.codePointAt(0) + 127397;
-  const second = clean.codePointAt(1) + 127397;
-  return String.fromCodePoint(first, second);
-}
-
 function getCompetitiveCardDetail() {
   const localProgress = state.competitive.localProgress;
   if (
@@ -1127,6 +1176,37 @@ function renderVisuals(visuals) {
     return;
   }
 
+  const renderMiniOutlineCard = (item) => {
+    const card = document.createElement("div");
+    card.className = "mini-outline-card";
+
+    const label = document.createElement("span");
+    label.className = "mini-outline-label";
+    label.textContent = item.label || "Clue";
+    card.appendChild(label);
+
+    if (item?.isUnknown) {
+      card.classList.add("unknown-slot");
+      const mark = document.createElement("span");
+      mark.className = "mini-outline-mark";
+      mark.textContent = "?";
+      mark.setAttribute("aria-hidden", "true");
+      card.appendChild(mark);
+      multiWrap.appendChild(card);
+      return;
+    }
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 640 380");
+    svg.setAttribute("class", "mini-outline-svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", item.label || "Clue country outline");
+
+    card.appendChild(svg);
+    multiWrap.appendChild(card);
+    drawOutline(svg, item.feature);
+  };
+
   if (visuals.layout === "reverse-clue") {
     if (visuals.feature) {
       singleWrap.classList.remove("hidden");
@@ -1136,26 +1216,7 @@ function renderVisuals(visuals) {
     if (Array.isArray(visuals.items) && visuals.items.length) {
       multiWrap.classList.remove("hidden");
       visuals.items.forEach((item) => {
-        const card = document.createElement("div");
-        card.className = "mini-outline-card";
-
-        const label = document.createElement("span");
-        label.className = "mini-outline-label";
-        label.textContent = item.label || "Clue";
-
-        const svg = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "svg",
-        );
-        svg.setAttribute("viewBox", "0 0 640 380");
-        svg.setAttribute("class", "mini-outline-svg");
-        svg.setAttribute("role", "img");
-        svg.setAttribute("aria-label", item.label || "Clue country outline");
-
-        card.appendChild(label);
-        card.appendChild(svg);
-        multiWrap.appendChild(card);
-        drawOutline(svg, item.feature);
+        renderMiniOutlineCard(item);
       });
     }
     return;
@@ -1191,23 +1252,7 @@ function renderVisuals(visuals) {
   ) {
     multiWrap.classList.remove("hidden");
     visuals.items.forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "mini-outline-card";
-
-      const label = document.createElement("span");
-      label.className = "mini-outline-label";
-      label.textContent = item.label || "Clue";
-
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 640 380");
-      svg.setAttribute("class", "mini-outline-svg");
-      svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", item.label || "Clue country outline");
-
-      card.appendChild(label);
-      card.appendChild(svg);
-      multiWrap.appendChild(card);
-      drawOutline(svg, item.feature);
+      renderMiniOutlineCard(item);
     });
   }
 }
@@ -1310,7 +1355,11 @@ function finalizeAnswer(result) {
   state.score += result.points || 0;
   updateStatus();
   saveCompetitiveInProgressSnapshot();
-  mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
+  const shouldResetMapAssistZoom =
+    state.currentQuestion?.input?.type === "map-select";
+  mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted, {
+    resetZoom: shouldResetMapAssistZoom,
+  });
 
   if (state.currentQuestion?.input?.type === "map-select") {
     setFeedback(result.message, result.correct ? "correct" : "wrong");
@@ -1360,6 +1409,14 @@ function applyMapAssistDefault(question) {
     return;
   }
 
+  if (state.selectedModeId === "reverse-border") {
+    const saved = readMapAssistPref("reverse-border");
+    if (typeof saved === "boolean") {
+      mapAssistToggle.checked = saved;
+      return;
+    }
+  }
+
   if (typeof question?.mapAssistDefaultOn === "boolean") {
     mapAssistToggle.checked = question.mapAssistDefaultOn;
   }
@@ -1400,7 +1457,7 @@ function submitAnswer(rawAnswer) {
   finalizeAnswer(result);
 }
 
-function handleWorldMapSelection(event) {
+function applyWorldMapSelectionForEvent(event) {
   if (!state.currentQuestion || state.hasSubmitted) {
     return;
   }
@@ -1435,6 +1492,53 @@ function handleWorldMapSelection(event) {
   mapAssist.renderWorldAssist(state.currentQuestion, false);
 }
 
+function handleWorldMapPointerDown(event) {
+  if (!state.currentQuestion || state.hasSubmitted) {
+    return;
+  }
+
+  if (state.currentQuestion.input?.type !== "map-select") {
+    return;
+  }
+
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+
+  mapPointerStart = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    at: Date.now(),
+  };
+}
+
+function handleWorldMapPointerUp(event) {
+  if (!mapPointerStart) {
+    return;
+  }
+
+  if (event.pointerId !== mapPointerStart.pointerId) {
+    return;
+  }
+
+  const dx = event.clientX - mapPointerStart.x;
+  const dy = event.clientY - mapPointerStart.y;
+  const moved = Math.hypot(dx, dy) > 14;
+  const heldTooLong = Date.now() - mapPointerStart.at > 1200;
+  mapPointerStart = null;
+
+  if (moved || heldTooLong) {
+    return;
+  }
+
+  applyWorldMapSelectionForEvent(event);
+}
+
+function handleWorldMapPointerCancel() {
+  mapPointerStart = null;
+}
+
 function revealAnswer() {
   if (!state.currentQuestion || state.hasSubmitted) {
     return;
@@ -1453,7 +1557,9 @@ function revealAnswer() {
     state.hasSubmitted = true;
     updateStatus();
     saveCompetitiveInProgressSnapshot();
-    mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
+    mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted, {
+      resetZoom: true,
+    });
     setFeedback(result.message || "Revealed on map.", "wrong");
     revealBtn.disabled = true;
     submitBtn.disabled = false;
@@ -1558,6 +1664,10 @@ async function startMode(modeId) {
   const effectiveContinent = getEffectiveContinentForMode(modeId);
   state.activeData = buildFilteredData(state.data, effectiveContinent);
   state.selectedModeId = modeId;
+  document.body.classList.toggle(
+    "mode-reverse-border",
+    modeId === "reverse-border",
+  );
   const competitiveResume =
     modeId === COMPETITIVE_MODE_ID &&
     state.competitive.localProgress?.dayKey === state.todayKey &&
@@ -1588,7 +1698,7 @@ async function startMode(modeId) {
     }
   }
 
-  mapAssistToggle.checked = modeId === "region-chain";
+  mapAssistToggle.checked = resolveMapAssistDefaultForMode(modeId);
   setSettingsOpen(false);
 
   modeSelect.classList.add("hidden");
@@ -1600,6 +1710,7 @@ async function startMode(modeId) {
   topNavRow.classList.remove("hidden");
   setHomeViewClass(false);
   setHeaderGameMeta(true);
+  setHeaderModeLabel(modeDef.title);
 
   submitBtn.disabled = false;
   answerInput.disabled = false;
@@ -1612,6 +1723,7 @@ function backToModes() {
   state.activeData = null;
   state.currentQuestion = null;
   state.selectedModeId = null;
+  document.body.classList.remove("mode-reverse-border");
 
   modeSelect.classList.remove("hidden");
   gameSection.classList.add("hidden");
@@ -1623,6 +1735,7 @@ function backToModes() {
   setFeedback("");
   setHomeViewClass(true);
   setHeaderGameMeta(false);
+  setHeaderModeLabel("");
   setSettingsOpen(false);
   renderModeCards();
 }
@@ -1739,10 +1852,20 @@ chainInput2.addEventListener("keydown", (event) => {
 });
 
 mapAssistToggle.addEventListener("change", () => {
+  if (state.selectedModeId === "reverse-border") {
+    writeMapAssistPref("reverse-border", mapAssistToggle.checked);
+  }
   mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
 });
 
-worldMapSvg.addEventListener("click", handleWorldMapSelection);
+if (typeof window.PointerEvent === "function") {
+  worldMapSvg.addEventListener("pointerdown", handleWorldMapPointerDown);
+  worldMapSvg.addEventListener("pointerup", handleWorldMapPointerUp);
+  worldMapSvg.addEventListener("pointercancel", handleWorldMapPointerCancel);
+  worldMapSvg.addEventListener("pointerleave", handleWorldMapPointerCancel);
+} else {
+  worldMapSvg.addEventListener("click", applyWorldMapSelectionForEvent);
+}
 
 backToModesBtn.addEventListener("click", backToModes);
 
