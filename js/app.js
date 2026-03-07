@@ -21,6 +21,7 @@ import { createNormalMode } from "./modes/normalMode.js";
 import { createMapSelectMode } from "./modes/mapSelectMode.js";
 import { createRegionChainMode } from "./modes/regionChainMode.js";
 import { createReverseBorderMode } from "./modes/reverseBorderMode.js";
+import { createCountryAutocompleteManager } from "./countryAutocomplete.js";
 
 const PLAYER_NAME_STORAGE_KEY = "borderlinesPlayerName";
 const PLAYER_COUNTRY_STORAGE_KEY = "borderlinesPlayerCountry";
@@ -103,6 +104,13 @@ const backToModesBtn = document.getElementById("backToModesBtn");
 let resolveNamePrompt = null;
 let competitiveCountdownTimer = null;
 let mapPointerStart = null;
+
+const countryAutocomplete = createCountryAutocompleteManager({
+  getSourceData: () => state.activeData || state.data,
+  normalizeInput: normalize,
+  minChars: 3,
+  maxSuggestions: 5,
+});
 
 const modeCatalog = [
   {
@@ -210,7 +218,8 @@ function writeMapAssistPref(modeId, enabled) {
 
 function resolveMapAssistDefaultForMode(modeId) {
   if (modeId === "region-chain") {
-    return true;
+    const saved = readMapAssistPref(modeId);
+    return saved ?? true;
   }
 
   if (modeId === "reverse-border") {
@@ -424,8 +433,8 @@ function buildFilteredData(data, continent) {
 }
 
 function updateActiveFilterLabel() {
-  activeContinentLabel.textContent = `Continent filter: ${state.settings.continent}`;
-  activeContinentLabel.title = "Competitive Mode always uses All continents.";
+  activeContinentLabel.textContent = `Region: ${state.settings.continent}`;
+  activeContinentLabel.title = "Competitive Mode always uses All regions.";
 }
 
 function getEffectiveContinentForMode(modeId) {
@@ -859,6 +868,26 @@ async function refreshCompetitiveStateAndUi() {
   renderModeCards();
 }
 
+function updateCompetitiveCardDetailText() {
+  if (!modeCards) {
+    return;
+  }
+
+  const competitiveCard = modeCards.querySelector(
+    `[data-mode-id="${COMPETITIVE_MODE_ID}"]`,
+  );
+  if (!competitiveCard) {
+    return;
+  }
+
+  const detailEl = competitiveCard.querySelector(".mode-card-copy > span");
+  if (!detailEl) {
+    return;
+  }
+
+  detailEl.textContent = getCompetitiveCardDetail();
+}
+
 function startCompetitiveCountdownTimer() {
   if (competitiveCountdownTimer) {
     clearInterval(competitiveCountdownTimer);
@@ -869,7 +898,7 @@ function startCompetitiveCountdownTimer() {
       return;
     }
 
-    renderModeCards();
+    updateCompetitiveCardDetailText();
 
     const currentDayKey = getTodayDayKey();
     if (currentDayKey !== state.todayKey) {
@@ -1132,6 +1161,14 @@ function renderModeCards() {
     const lockedToday = isCompetitive && state.competitive.playedToday;
     const description = isCompetitive ? getCompetitiveCardDetail() : mode.desc;
 
+    if (isCompetitive) {
+      if (lockedToday) {
+        btn.classList.add("competitive-played");
+      } else if (resumableToday) {
+        btn.classList.add("competitive-unfinished");
+      }
+    }
+
     if (lockedToday) {
       btn.classList.add("locked");
       btn.disabled = true;
@@ -1275,6 +1312,18 @@ function updateChainPreview(inputEl, svgEl) {
   drawOutline(svgEl, country.feature);
 }
 
+function shouldEnableCountryAutocomplete(input) {
+  if (!input || input.type !== "text") {
+    return false;
+  }
+
+  const prompt = String(state.currentQuestion?.prompt || "");
+  const hint = String(state.currentQuestion?.hint || "");
+  const placeholder = String(input.placeholder || "");
+  const context = `${prompt} ${hint} ${placeholder}`.toLowerCase();
+  return context.includes("country");
+}
+
 function renderInput(input) {
   textInputWrap.classList.add("hidden");
   textInputWrap.classList.remove("docked-input");
@@ -1292,6 +1341,9 @@ function renderInput(input) {
   submitBtn.classList.add("hidden");
   chainSubmitBtn.classList.add("hidden");
   choiceWrap.innerHTML = "";
+  countryAutocomplete.setEnabled(answerInput, false);
+  countryAutocomplete.setEnabled(chainInput1, false);
+  countryAutocomplete.setEnabled(chainInput2, false);
 
   if (input.type === "choice") {
     choiceWrap.classList.remove("hidden");
@@ -1323,6 +1375,8 @@ function renderInput(input) {
     chainPreview2.innerHTML = "";
     chainPreviewCard1.classList.add("hidden");
     chainPreviewCard2.classList.add("hidden");
+    countryAutocomplete.setEnabled(chainInput1, true);
+    countryAutocomplete.setEnabled(chainInput2, true);
     return;
   }
 
@@ -1348,6 +1402,10 @@ function renderInput(input) {
   answerInput.value = "";
   answerInput.type = input.type === "number" ? "number" : "text";
   answerInput.placeholder = input.placeholder || "Type answer";
+  countryAutocomplete.setEnabled(
+    answerInput,
+    shouldEnableCountryAutocomplete(input),
+  );
 }
 
 function finalizeAnswer(result) {
@@ -1409,8 +1467,11 @@ function applyMapAssistDefault(question) {
     return;
   }
 
-  if (state.selectedModeId === "reverse-border") {
-    const saved = readMapAssistPref("reverse-border");
+  if (
+    state.selectedModeId === "reverse-border" ||
+    state.selectedModeId === "region-chain"
+  ) {
+    const saved = readMapAssistPref(state.selectedModeId);
     if (typeof saved === "boolean") {
       mapAssistToggle.checked = saved;
       return;
@@ -1450,6 +1511,41 @@ function showQuestion() {
 
 function submitAnswer(rawAnswer) {
   if (!state.currentQuestion || state.hasSubmitted) {
+    return;
+  }
+
+  const inputType = state.currentQuestion.input?.type || "text";
+  let hasAnswer = true;
+
+  if (inputType === "map-select") {
+    hasAnswer = String(rawAnswer || "").trim().length > 0;
+  } else if (inputType === "chain-builder") {
+    hasAnswer =
+      Array.isArray(rawAnswer) &&
+      rawAnswer.length >= 2 &&
+      rawAnswer.every((part) => String(part || "").trim().length > 0);
+  } else if (inputType !== "choice") {
+    hasAnswer = String(rawAnswer || "").trim().length > 0;
+  }
+
+  if (!hasAnswer) {
+    if (inputType === "map-select") {
+      setFeedback("Select a country on the world map first.", "wrong");
+      return;
+    }
+
+    if (inputType === "chain-builder") {
+      setFeedback("Enter both middle countries before submitting.", "wrong");
+      if (!String(chainInput1.value || "").trim()) {
+        chainInput1.focus();
+      } else {
+        chainInput2.focus();
+      }
+      return;
+    }
+
+    setFeedback("Enter an answer before submitting.", "wrong");
+    answerInput.focus();
     return;
   }
 
@@ -1852,8 +1948,11 @@ chainInput2.addEventListener("keydown", (event) => {
 });
 
 mapAssistToggle.addEventListener("change", () => {
-  if (state.selectedModeId === "reverse-border") {
-    writeMapAssistPref("reverse-border", mapAssistToggle.checked);
+  if (
+    state.selectedModeId === "reverse-border" ||
+    state.selectedModeId === "region-chain"
+  ) {
+    writeMapAssistPref(state.selectedModeId, mapAssistToggle.checked);
   }
   mapAssist.renderWorldAssist(state.currentQuestion, state.hasSubmitted);
 });
@@ -1959,6 +2058,10 @@ async function init() {
   updatePlayerNameLabel();
   setFeedback("Loading local datasets...");
   try {
+    countryAutocomplete.attachInput(answerInput);
+    countryAutocomplete.attachInput(chainInput1);
+    countryAutocomplete.attachInput(chainInput2);
+
     state.data = await loadGameData();
     const options = getContinentOptions(state.data);
     continentSelect.innerHTML = "";

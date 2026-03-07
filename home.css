@@ -1,8 +1,22 @@
 /* Home-only overrides for a compact newspaper puzzle vibe. */
+@media (min-width: 781px) {
+  body.home-view,
+  body.in-mode {
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.home-view .app,
+  body.in-mode .app {
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+}
+
 body.home-view .header {
   margin-bottom: 10px;
   padding: 12px;
-  border-top: 4px solid #111;
+  /* border-top: 4px solid #111; */
   border-bottom: 1px solid #cfcfca;
 }
 
@@ -12,8 +26,8 @@ body.home-view .header h1 {
   border-right: 5px solid var(--accent);
 }
 
-body.home-view .header p {
-  margin: 0;
+body.home-view #headerDescription {
+  margin: 0 0 10px;
   max-width: 68ch;
   font-size: 0.88rem;
   color: #5a5a56;
@@ -24,19 +38,26 @@ body.home-view .header .header-meta {
 }
 
 body.home-view .mode-select-head {
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 
-body.home-view .mode-select h2 {
+body.home-view .mode-select-head h2 {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   font-size: 1.03rem;
 }
 
-body.home-view .active-filter {
+body.home-view #openSettingsBtn {
   display: inline-flex;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 6px;
+}
+
+body.home-view .active-filter {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  margin: 0;
   padding: 3px 10px;
   border: 1px solid var(--accent-deep);
   border-radius: 999px;
@@ -59,20 +80,29 @@ body.home-view .mode-card {
 }
 
 body.home-view .mode-card .mode-card-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
 }
 
 body.home-view .mode-card strong {
-  font-size: 0.9rem;
+  font-size: 0.98rem;
 }
 
 body.home-view .mode-card-copy > span {
-  font-size: 0.77rem;
+  font-size: 0.84rem;
 }
 
 body.home-view .mode-card:hover {
   background: #fff7f2;
+}
+
+body.home-view .mode-card.competitive-unfinished:hover {
+  background: linear-gradient(170deg, #fff4b7, #ffe57f);
+}
+
+body.home-view .mode-card.competitive-played:hover,
+body.home-view .mode-card.locked.competitive-played:hover {
+  background: linear-gradient(170deg, #ddf4df, #bde6c2);
 }
 
 @media (max-width: 780px) {
@@ -87,7 +117,8 @@ body.home-view .mode-card:hover {
     border-right-width: 4px;
   }
 
-  body.home-view .header p {
+  body.home-view #headerDescription {
+    margin-bottom: 8px;
     font-size: 0.74rem;
     line-height: 1.22;
   }
@@ -106,16 +137,39 @@ body.home-view .mode-card:hover {
     font-size: 0.72rem;
   }
 
+  body.home-view #openSettingsBtn {
+    min-width: 42px;
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  body.home-view #openSettingsBtn .settings-btn-label {
+    display: none;
+  }
+
   body.home-view .mode-card {
-    min-height: 0;
-    padding: 8px;
+    min-height: 124px;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  body.home-view .mode-card .mode-card-top {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  body.home-view .mode-card .mode-card-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
   }
 
   body.home-view .mode-card strong {
-    font-size: 0.83rem;
+    font-size: 0.88rem;
   }
 
   body.home-view .mode-card-copy > span {
-    font-size: 0.72rem;
+    font-size: 0.76rem;
   }
 }

@@ -34,23 +34,30 @@
           <h1>Borderlines</h1>
           <span id="headerModeLabel" class="header-mode-label hidden"></span>
         </div>
-        <p id="headerDescription">
-          Pick a game mode and play with country outlines and real border data.
-        </p>
+        <div class="header-utility-row">
+          <p id="activeContinentLabel" class="active-filter">
+            Continent filter: All
+          </p>
+          <button
+            id="openSettingsBtn"
+            type="button"
+            class="ghost"
+            aria-label="Open settings"
+          >
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
+            <span class="settings-btn-label">Settings</span>
+          </button>
+        </div>
         <p id="headerMeta" class="header-meta hidden" aria-live="polite"></p>
       </header>
 
       <section id="modeSelect" class="card mode-select">
         <div class="mode-select-head">
           <h2>Choose Mode</h2>
-          <button id="openSettingsBtn" type="button" class="ghost">
-            Settings
-          </button>
         </div>
-        <p id="activeContinentLabel" class="active-filter">
-          Continent filter: All
+        <p id="headerDescription">
+          Pick a game mode and play with country outlines and real border data.
         </p>
-
         <div id="modeCards" class="mode-cards"></div>
         <p class="source-note">
           Data sources: Natural Earth country outlines and GeoDataSource country
@@ -71,7 +78,7 @@
         aria-labelledby="settingsTitle"
       >
         <h3 id="settingsTitle">Game Settings</h3>
-        <label for="continentSelect" class="settings-label">Continent</label>
+        <label for="continentSelect" class="settings-label">Region</label>
         <select id="continentSelect"></select>
         <p class="settings-note">Competitive uses the global pool (All).</p>
         <div class="settings-actions">

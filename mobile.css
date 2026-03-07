@@ -58,7 +58,7 @@
     font-size: clamp(1.2rem, 5.4vw, 1.6rem);
   }
 
-  .header p {
+  #headerDescription {
     font-size: 0.8rem;
     line-height: 1.3;
   }
@@ -124,7 +124,7 @@
     min-height: auto;
   }
 
-  .mode-select h2,
+  .mode-select-head h2,
   .result-card h2 {
     font-size: 1.04rem;
   }
@@ -373,7 +373,7 @@
     font-size: 1.14rem;
   }
 
-  .header p,
+  #headerDescription,
   .status-row,
   .hint,
   .assist-toggle,

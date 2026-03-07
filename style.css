@@ -10,6 +10,12 @@
   --correct: #1a7f45;
   --wrong: #ad2d2d;
   --shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  --font-ui:
+    "Stag Sans", "Stag Sans Web", "Avenir Next", "Helvetica Neue", "Segoe UI",
+    Arial, sans-serif;
+  --font-ui-emoji:
+    "Stag Sans", "Stag Sans Web", "Avenir Next", "Helvetica Neue", "Segoe UI",
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif;
 }
 
 * {
@@ -39,7 +45,7 @@ body {
       transparent 4px
     ),
     var(--paper);
-  font-family: "Menlo", "Monaco", "Courier New", "Liberation Mono", monospace;
+  font-family: var(--font-ui);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -119,6 +125,18 @@ body.name-modal-open {
   gap: 8px;
 }
 
+.header-utility-row {
+  margin-top: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+body.in-mode .header-utility-row {
+  display: none;
+}
+
 .header-mode-label {
   padding: 0;
   color: var(--ink);
@@ -133,8 +151,8 @@ body.in-mode .header h1 {
   border-right: 5px solid var(--accent);
 }
 
-.header p {
-  margin: 8px 0 0;
+#headerDescription {
+  margin: 8px 0 10px;
   color: var(--ink-muted);
   max-width: 62ch;
   font-size: 0.95rem;
@@ -181,7 +199,7 @@ body.in-mode .header h1 {
   position: relative;
 }
 
-.mode-select h2 {
+.mode-select-head h2 {
   margin: 0;
   letter-spacing: 0.4px;
   font-size: 1.28rem;
@@ -192,11 +210,11 @@ body.in-mode .header h1 {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .active-filter {
-  margin: 0 0 10px;
+  margin: 0;
   color: var(--ink-muted);
   font-size: 0.85rem;
   border-left: 3px solid var(--accent);
@@ -393,6 +411,31 @@ body.in-mode .header h1 {
   padding: 7px 8px;
   font: inherit;
   background: #fff;
+
+  .country-suggest-bar {
+    margin: 0 0 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .country-suggest-chip {
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  .country-suggest-chip:hover {
+    border-color: var(--accent);
+    background: #fff4ec;
+  }
 }
 
 .settings-actions {
@@ -478,6 +521,26 @@ body.in-mode .header h1 {
   transform: translateY(-1px);
 }
 
+.mode-card.competitive-unfinished {
+  border-color: #caa53a;
+  background: linear-gradient(170deg, #fff8cf, #ffed9b);
+}
+
+.mode-card.competitive-unfinished:hover {
+  border-color: #b68f27;
+  background: linear-gradient(170deg, #fff4b7, #ffe57f);
+}
+
+.mode-card.competitive-played {
+  border-color: #3d8b58;
+  background: linear-gradient(170deg, #e9f8eb, #cdeecf);
+}
+
+.mode-card.competitive-played:hover {
+  border-color: #2f7447;
+  background: linear-gradient(170deg, #ddf4df, #bde6c2);
+}
+
 .mode-card.locked {
   border-color: #b7b7b2;
   background: linear-gradient(180deg, #f3f3f1, #ecece8);
@@ -486,9 +549,21 @@ body.in-mode .header h1 {
   opacity: 0.9;
 }
 
+.mode-card.locked.competitive-played {
+  border-color: #3d8b58;
+  background: linear-gradient(170deg, #e9f8eb, #cdeecf);
+  color: #2d4f36;
+  opacity: 1;
+}
+
 .mode-card.locked:hover {
   border-color: #b7b7b2;
   background: linear-gradient(180deg, #f3f3f1, #ecece8);
+}
+
+.mode-card.locked.competitive-played:hover {
+  border-color: #2f7447;
+  background: linear-gradient(170deg, #ddf4df, #bde6c2);
 }
 
 .mode-lock-note {
@@ -517,9 +592,7 @@ body.in-mode .header h1 {
   margin: 4px 0;
   font-size: 1.18rem;
   line-height: 1.18;
-  font-family:
-    "Menlo", "Monaco", "Courier New", "Liberation Mono", "Apple Color Emoji",
-    "Segoe UI Emoji", "Noto Color Emoji", monospace;
+  font-family: var(--font-ui-emoji);
 }
 
 .hint {
@@ -985,9 +1058,7 @@ button.ghost:hover {
   margin: 10px 0 2px;
   font-size: 0.85rem;
   font-weight: 700;
-  font-family:
-    "Menlo", "Monaco", "Courier New", "Liberation Mono", "Apple Color Emoji",
-    "Segoe UI Emoji", "Noto Color Emoji", monospace;
+  font-family: var(--font-ui-emoji);
 }
 
 .feedback.correct {
@@ -1030,9 +1101,7 @@ button.ghost:hover {
   color: #202020;
   font-weight: 700;
   font-size: 0.92rem;
-  font-family:
-    "Menlo", "Monaco", "Courier New", "Liberation Mono", "Apple Color Emoji",
-    "Segoe UI Emoji", "Noto Color Emoji", monospace;
+  font-family: var(--font-ui-emoji);
 }
 
 .nav-row,
