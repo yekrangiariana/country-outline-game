@@ -33,8 +33,8 @@ export function createBattleQuestion(left, right) {
   }
 
   return {
-    prompt: `Which ${itemSingular} has more land borders, ${leftLabel} or ${rightLabel}?`,
-    hint: `Pick the ${itemSingular} with more land borders, or Tie.`,
+    prompt: `Which ${itemSingular} has more land-border neighbors: ${leftLabel} or ${rightLabel}?`,
+    hint: "Count only neighbors that share a land border (no maritime borders). Choose one or Tie.",
     input: {
       type: "choice",
       options: [

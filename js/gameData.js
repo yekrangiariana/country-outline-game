@@ -95,6 +95,27 @@ const US_STATE_CODE_BY_FIPS = new Map([
   ["56", "WY"],
 ]);
 
+const FINLAND_REGION_NAME_BY_CODE = new Map([
+  ["FI-02", "Etelä-Karjala"],
+  ["FI-03", "Etelä-Pohjanmaa"],
+  ["FI-04", "Etelä-Savo"],
+  ["FI-05", "Kainuu"],
+  ["FI-06", "Kanta-Häme"],
+  ["FI-07", "Keski-Pohjanmaa"],
+  ["FI-08", "Keski-Suomi"],
+  ["FI-09", "Kymenlaakso"],
+  ["FI-10", "Lappi"],
+  ["FI-11", "Pirkanmaa"],
+  ["FI-12", "Pohjanmaa"],
+  ["FI-13", "Pohjois-Karjala"],
+  ["FI-14", "Pohjois-Pohjanmaa"],
+  ["FI-15", "Pohjois-Savo"],
+  ["FI-16", "Päijät-Häme"],
+  ["FI-17", "Satakunta"],
+  ["FI-18", "Uusimaa"],
+  ["FI-19", "Varsinais-Suomi"],
+]);
+
 export function normalize(text) {
   return (text || "")
     .toLowerCase()
@@ -613,7 +634,8 @@ export async function loadFinlandAreaData() {
     const rawCode = String(props.code || "")
       .trim()
       .toUpperCase();
-    const name = String(props.name || "").trim();
+    const englishName = String(props.name || "").trim();
+    const name = FINLAND_REGION_NAME_BY_CODE.get(rawCode) || englishName;
     if (!rawCode || !name || !hasRenderableGeometry(feature)) {
       return;
     }
@@ -622,9 +644,11 @@ export async function loadFinlandAreaData() {
     const iso2 = rawCode;
     const aliases = new Set([
       normalize(name),
+      normalize(englishName),
       normalize(shortCode),
       normalize(rawCode),
       normalize(`region of ${name}`),
+      normalize(`region of ${englishName}`),
     ]);
 
     const entry = {

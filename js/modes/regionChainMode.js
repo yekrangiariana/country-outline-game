@@ -48,8 +48,8 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
     const correctPair = `${mid1.name}, ${mid2.name}`;
 
     return {
-      prompt: `Fill in the two missing ${itemPlural}: ${startLabel} -> ? -> ? -> ${endLabel}`,
-      hint: `Type the two middle ${itemPlural} in order.`,
+      prompt: `Complete this border chain: ${startLabel} -> ? -> ? -> ${endLabel}`,
+      hint: `Enter the two middle ${itemPlural} in order. Each step must share a land border.`,
       input: {
         type: "chain-builder",
         placeholders: [
@@ -142,8 +142,8 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
   }
 
   return {
-    prompt: "Region Chain fallback round.",
-    hint: "Could not find a suitable chain right now.",
+    prompt: "Region Chain round unavailable.",
+    hint: "A valid chain could not be generated right now.",
     input: { type: "text", placeholder: "Type anything" },
     visuals: { layout: "none" },
     submit() {

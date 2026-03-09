@@ -37,8 +37,8 @@ export function createMapSelectQuestion(
   };
 
   return {
-    prompt: `Find ${targetLabel} on the ${mapLabel} and select it.`,
-    hint: `Tap or click a ${itemSingular} on the map, then press Submit.`,
+    prompt: `Select ${targetLabel} on the ${mapLabel}.`,
+    hint: `Tap or click the correct ${itemSingular}, then press Submit.`,
     input: {
       type: "map-select",
       placeholder: `Click a ${itemSingular} on the map`,

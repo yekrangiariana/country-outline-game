@@ -28,8 +28,8 @@ export function createReverseBorderQuestion(data, target, rng) {
   });
 
   return {
-    prompt: `Which ${itemSingular} borders all of these ${itemPlural}: ${clues.join(", ")}?`,
-    hint: `The clue ${itemPlural} outlines are shown below. Toggle map assist on if you want extra help.`,
+    prompt: `Which ${itemSingular} shares a land border with all of these ${itemPlural}: ${clues.join(", ")}?`,
+    hint: `Use the clue outlines below. Turn on map assist if you need help.`,
     input: { type: "text", placeholder: `Type ${itemSingular}` },
     visuals: { layout: "multi", items: clueItems },
     mapAssistDefaultOn: false,

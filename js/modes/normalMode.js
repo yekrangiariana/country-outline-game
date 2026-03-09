@@ -9,7 +9,7 @@ export function createNormalQuestion(target) {
   const targetLabel = formatCountryWithFlag(target.name, target.iso2);
 
   return {
-    prompt: `Identify this ${itemSingular} outline.`,
+    prompt: `Name the ${itemSingular} shown in this outline.`,
     hint: `Type the ${itemSingular} name.`,
     input: {
       type: "text",

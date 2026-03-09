@@ -80,8 +80,8 @@ function buildNeighborCountQuestion(target) {
   const count = target.neighbors.size;
 
   return {
-    prompt: `How many land neighbors does ${target.name} have?`,
-    hint: "Look at the outline and enter a whole number.",
+    prompt: `How many land-border neighbors does ${target.name} have?`,
+    hint: "Enter a whole number. Count only land-border neighbors.",
     input: { type: "number", placeholder: "0" },
     visuals: { layout: "single", feature: target.feature },
     submit(rawAnswer) {

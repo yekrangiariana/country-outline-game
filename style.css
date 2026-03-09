@@ -594,12 +594,6 @@ body.in-mode .header h1 {
   font-size: 1.18rem;
   line-height: 1.18;
   font-family: var(--font-ui-emoji);
-  text-align: left;
-  text-align-last: left;
-  text-justify: auto;
-  word-spacing: normal;
-  letter-spacing: normal;
-  white-space: normal;
 }
 
 .hint {
