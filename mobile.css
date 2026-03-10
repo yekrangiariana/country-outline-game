@@ -79,6 +79,8 @@
     grid-row: 1;
     grid-column: 1;
     min-width: 0;
+    flex-wrap: wrap;
+    row-gap: 2px;
   }
 
   .header-utility-row {
@@ -117,8 +119,15 @@
     display: none;
   }
 
-  #headerModeLabel {
-    display: none;
+  #headerModeLabel:not(.hidden) {
+    font-size: clamp(0.92rem, 3.8vw, 1.2rem);
+    line-height: 1.1;
+  }
+
+  .header-meta {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    margin: 2px 0 0;
   }
 
   #headerDescription {

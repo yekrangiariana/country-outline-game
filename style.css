@@ -1419,6 +1419,10 @@ button.ghost.is-active {
   text-decoration: underline;
 }
 
+body.in-mode .legal-link-footer {
+  display: none;
+}
+
 .legal-page p {
   margin: 0 0 8px;
   color: #4f4f4a;
