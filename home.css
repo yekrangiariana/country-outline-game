@@ -75,7 +75,7 @@ body.home-view .mode-cards {
 
 body.home-view .mode-card {
   min-height: 112px;
-  padding: 9px;
+  padding: 15px;
   border-radius: 8px;
 }
 
@@ -149,8 +149,8 @@ body.home-view .mode-card.locked.competitive-played:hover {
   }
 
   body.home-view .mode-card {
-    min-height: 124px;
-    padding: 12px;
+    min-height: 174px;
+    padding: 15px;
     gap: 8px;
   }
 
