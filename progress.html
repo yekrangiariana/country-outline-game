@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Borderlines Progress</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./backdrop.css" />
+    <link rel="stylesheet" href="./home.css" />
+    <link rel="stylesheet" href="./settings-progress.css" />
+    <link rel="stylesheet" href="./mobile.css" media="(max-width: 780px)" />
+  </head>
+  <body class="progress-view">
+    <div id="outlineBackdrop" class="outline-backdrop" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+    <main class="app">
+      <div class="top-nav-row" id="topNavRow">
+        <button id="backToModesBtn" type="button" class="ghost">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          <span>Back to modes</span>
+        </button>
+      </div>
+
+      <header class="header">
+        <div class="header-title-row">
+          <h1>Borderlines</h1>
+          <span id="headerModeLabel" class="header-mode-label">Progress</span>
+        </div>
+        <div class="header-utility-row">
+          <div class="header-actions">
+            <button
+              id="openProgressBtn"
+              type="button"
+              class="ghost is-active"
+              aria-label="Progress page"
+            >
+              <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+              <span class="settings-btn-label">Progress</span>
+            </button>
+            <button
+              id="openSettingsBtn"
+              type="button"
+              class="ghost"
+              aria-label="Back to game"
+            >
+              <i class="fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="settings-btn-label">Settings</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="card mode-select">
+        <div class="mode-select-head">
+          <h2>Outline Progress</h2>
+        </div>
+        <section
+          id="settingsProgressPanel"
+          class="settings-progress-panel"
+          aria-label="Outline progress"
+        ></section>
+      </section>
+
+      <footer class="legal-link-footer" aria-label="Legal links">
+        <a href="./legal.html">Privacy Notice, Terms of Use and Data Sources</a>
+      </footer>
+    </main>
+
+    <script src="./vendor/d3.v7.min.js"></script>
+    <script src="./vendor/topojson-client.min.js"></script>
+    <script type="module" src="./js/progressPage.js"></script>
+  </body>
+</html>

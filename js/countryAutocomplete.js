@@ -153,7 +153,22 @@ export function createCountryAutocompleteManager(options = {}) {
     container.setAttribute("role", "listbox");
 
     if (inputEl.parentElement) {
-      inputEl.parentElement.insertBefore(container, inputEl);
+      const isChainInput =
+        inputEl.id === "chainInput1" || inputEl.id === "chainInput2";
+
+      if (
+        isChainInput &&
+        inputEl.parentElement.parentElement &&
+        inputEl.parentElement.classList.contains("chain-inline-row")
+      ) {
+        container.classList.add("chain-suggest-top");
+        inputEl.parentElement.parentElement.insertBefore(
+          container,
+          inputEl.parentElement,
+        );
+      } else {
+        inputEl.parentElement.insertBefore(container, inputEl);
+      }
     }
 
     const binding = {

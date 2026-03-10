@@ -48,8 +48,8 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
     const correctPair = `${mid1.name}, ${mid2.name}`;
 
     return {
-      prompt: `Complete this border chain: ${startLabel} -> ? -> ? -> ${endLabel}`,
-      hint: `Enter the two middle ${itemPlural} in order. Each step must share a land border.`,
+      prompt: `Connect ${startLabel} to ${endLabel} using two middle ${itemPlural}.`,
+      hint: `Enter the two middle ${itemPlural} in order. Multiple valid chains may exist. World map assist provides a hint path.`,
       input: {
         type: "chain-builder",
         placeholders: [
@@ -64,6 +64,7 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
         leftLabel: `Start: ${start.name}`,
         rightLabel: `End: ${end.name}`,
       },
+      exposedIso2: [start.iso2, mid1.iso2, mid2.iso2, end.iso2],
       worldAssist: {
         highlights: [
           { iso2: start.iso2, role: "start" },
@@ -91,7 +92,7 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
           return {
             correct: false,
             points: 0,
-            message: `Wrong. Enter exactly two middle ${itemPlural}. Correct answer: ${correctPair}.`,
+            message: `Wrong. Enter exactly two middle ${itemPlural}. One valid answer is: ${correctPair}.`,
           };
         }
 
@@ -102,7 +103,7 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
           return {
             correct: false,
             points: 0,
-            message: `Wrong. One or more ${itemSingular} names were not recognized. Correct answer: ${correctPair}.`,
+            message: `Wrong. One or more ${itemSingular} names were not recognized. One valid answer is: ${correctPair}.`,
           };
         }
 
@@ -128,14 +129,14 @@ function buildChainQuestion(data, rng, startPicker, attemptLimit = 120) {
         return {
           correct: false,
           points: 0,
-          message: `Wrong. A valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
+          message: `Wrong. One valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
         };
       },
       reveal() {
         return {
           correct: false,
           points: 0,
-          message: `Revealed. A valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
+          message: `Revealed. One valid chain is ${startLabel} -> ${mid1Label} -> ${mid2Label} -> ${endLabel}.`,
         };
       },
     };

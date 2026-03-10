@@ -84,6 +84,7 @@ function buildNeighborCountQuestion(target) {
     hint: "Enter a whole number. Count only land-border neighbors.",
     input: { type: "number", placeholder: "0" },
     visuals: { layout: "single", feature: target.feature },
+    exposedIso2: [target.iso2],
     submit(rawAnswer) {
       const value = Number.parseInt(rawAnswer, 10);
       const correct = Number.isInteger(value) && value === count;

@@ -310,6 +310,44 @@ export async function fetchDailyLeaderboard(limit = 20) {
   return { ok: true, rows: data || [] };
 }
 
+export async function fetchWeeklyLeaderboard(limit = 20) {
+  const db = getClient();
+  if (!db) {
+    return {
+      ok: false,
+      disabled: true,
+      message: "Leaderboard not configured.",
+      rows: [],
+    };
+  }
+
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setUTCDate(now.getUTCDate() - 6);
+  weekStart.setUTCHours(0, 0, 0, 0);
+
+  const { data, error } = await db
+    .from(TABLE_NAME)
+    .select(
+      "display_name, score, max_score, continent, played_at, player_country, device_id",
+    )
+    .eq("mode_id", MODE_ID)
+    .gte("played_at", weekStart.toISOString())
+    .order("score", { ascending: false })
+    .order("played_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    return {
+      ok: false,
+      message: `Could not load leaderboard: ${error.message}`,
+      rows: [],
+    };
+  }
+
+  return { ok: true, rows: data || [] };
+}
+
 export async function hasPlayedCompetitiveToday(deviceId) {
   const db = getClient();
   if (!db) {

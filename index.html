@@ -38,15 +38,26 @@
           <p id="activeContinentLabel" class="active-filter">
             Region: All Countries
           </p>
-          <button
-            id="openSettingsBtn"
-            type="button"
-            class="ghost"
-            aria-label="Open settings"
-          >
-            <i class="fa-solid fa-gear" aria-hidden="true"></i>
-            <span class="settings-btn-label">Settings</span>
-          </button>
+          <div class="header-actions">
+            <button
+              id="openProgressBtn"
+              type="button"
+              class="ghost"
+              aria-label="Open progress"
+            >
+              <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+              <span class="settings-btn-label">Progress</span>
+            </button>
+            <button
+              id="openSettingsBtn"
+              type="button"
+              class="ghost"
+              aria-label="Open settings"
+            >
+              <i class="fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="settings-btn-label">Settings</span>
+            </button>
+          </div>
         </div>
         <p id="headerMeta" class="header-meta hidden" aria-live="polite"></p>
       </header>
@@ -59,11 +70,6 @@
           Pick a game mode and play with outline maps and real border data.
         </p>
         <div id="modeCards" class="mode-cards"></div>
-        <p class="source-note">
-          Data sources: Natural Earth country outlines, US Atlas state outlines,
-          Natural Earth UK/Finland admin areas, and GeoDataSource country
-          borders.
-        </p>
       </section>
 
       <div
@@ -306,7 +312,32 @@
         <div id="finalScore" class="score-summary"></div>
         <div id="leaderboardWrap" class="leaderboard-wrap hidden">
           <div class="leaderboard-head">
-            <h3>Competitive Mode Daily Leaderboard</h3>
+            <h3 id="leaderboardTitle">Competitive Mode Leaderboard</h3>
+            <div
+              id="leaderboardTabs"
+              class="leaderboard-tabs"
+              role="tablist"
+              aria-label="Leaderboard period"
+            >
+              <button
+                id="leaderboardDailyTab"
+                type="button"
+                class="leaderboard-tab is-active"
+                role="tab"
+                aria-selected="true"
+              >
+                Daily
+              </button>
+              <button
+                id="leaderboardWeeklyTab"
+                type="button"
+                class="leaderboard-tab"
+                role="tab"
+                aria-selected="false"
+              >
+                Weekly
+              </button>
+            </div>
           </div>
           <p id="playerNameLabel" class="player-name-label">Player: not set</p>
           <p
@@ -317,6 +348,10 @@
           <ol id="leaderboardList" class="leaderboard-list"></ol>
         </div>
       </section>
+
+      <footer class="legal-link-footer" aria-label="Legal links">
+        <a href="./legal.html">Privacy Notice, Terms of Use and Data Sources</a>
+      </footer>
     </main>
 
     <script src="./vendor/d3.v7.min.js"></script>

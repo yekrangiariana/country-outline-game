@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Borderlines Legal and Sources</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./backdrop.css" />
+    <link rel="stylesheet" href="./home.css" />
+    <link rel="stylesheet" href="./mobile.css" media="(max-width: 780px)" />
+  </head>
+  <body class="legal-view">
+    <div id="outlineBackdrop" class="outline-backdrop" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+    <main class="app">
+      <div class="top-nav-row" id="topNavRow">
+        <button id="backToModesBtn" type="button" class="ghost">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          <span>Back to app</span>
+        </button>
+      </div>
+
+      <header class="header">
+        <div class="header-title-row">
+          <h1>Borderlines</h1>
+          <span id="headerModeLabel" class="header-mode-label">Legal</span>
+        </div>
+      </header>
+
+      <section class="card mode-select legal-page">
+        <div class="mode-select-head">
+          <h2>Privacy Notice</h2>
+        </div>
+        <p>
+          Borderlines stores gameplay settings and played-outline progress in
+          your browser local storage to support core game functionality.
+        </p>
+        <p>
+          If you choose to play, leaderboard scores are stored in our project
+          database.
+        </p>
+
+        <div class="mode-select-head legal-head-gap">
+          <h2>Terms of Use</h2>
+        </div>
+        <p>
+          Borderlines is an open-source project stewarded by UN-aligned.
+          Copyright remains with its respective contributors.
+        </p>
+        <p>
+          Use, copying, and modification are permitted according to the
+          repository license. You are responsible for complying with that
+          license in any redistribution or commercial use.
+        </p>
+
+        <div class="mode-select-head legal-head-gap">
+          <h2>Data Sources</h2>
+        </div>
+        <ul class="legal-list">
+          <li>Natural Earth country outlines.</li>
+          <li>US Atlas state outlines.</li>
+          <li>Natural Earth UK and Finland administrative area outlines.</li>
+          <li>GeoDataSource country border adjacency dataset.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="./vendor/d3.v7.min.js"></script>
+    <script type="module">
+      import { loadGameData } from "./js/gameData.js";
+
+      const outlineBackdrop = document.getElementById("outlineBackdrop");
+      const backBtn = document.getElementById("backToModesBtn");
+      backBtn?.addEventListener("click", () => {
+        window.location.href = "./index.html";
+      });
+
+      function createBackdropToken(country) {
+        const d3 = globalThis.d3;
+        const feature = country?.feature;
+        if (!d3 || !feature) {
+          return null;
+        }
+
+        const projection = d3.geoMercator();
+        projection.fitExtent(
+          [
+            [4, 4],
+            [68, 40],
+          ],
+          feature,
+        );
+        const path = d3.geoPath(projection);
+        const pathD = path(feature);
+        if (!pathD) {
+          return null;
+        }
+
+        const token = document.createElement("div");
+        token.className = "outline-backdrop-token";
+
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        svg.setAttribute("class", "outline-backdrop-svg");
+        svg.setAttribute("viewBox", "0 0 72 44");
+        svg.setAttribute("aria-hidden", "true");
+
+        const p = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path",
+        );
+        p.setAttribute("d", pathD);
+        p.setAttribute("class", "outline-backdrop-path");
+        svg.appendChild(p);
+        token.appendChild(svg);
+        return token;
+      }
+
+      function renderOutlineBackdrop(data) {
+        if (!outlineBackdrop) {
+          return;
+        }
+
+        outlineBackdrop.innerHTML = "";
+        if (!data?.countries?.length) {
+          return;
+        }
+
+        const isMobile = window.matchMedia("(max-width: 780px)").matches;
+        const isWide = window.matchMedia("(min-width: 1280px)").matches;
+        const viewportHeight = Math.max(window.innerHeight || 0, 320);
+
+        const tokenHeight = isMobile ? 50 : isWide ? 90 : 72;
+        const lineGap = isMobile ? 12 : isWide ? 20 : 16;
+        const rowStep = tokenHeight + lineGap;
+        const computedRows =
+          Math.floor((viewportHeight - tokenHeight) / rowStep) + 1;
+        const rows = isWide
+          ? Math.max(8, Math.ceil(viewportHeight / rowStep) + 1)
+          : Math.max(4, Math.min(10, computedRows));
+        const occupiedHeight = tokenHeight + (rows - 1) * rowStep;
+        const startTop = isWide
+          ? 0
+          : Math.max(0, Math.floor((viewportHeight - occupiedHeight) / 2));
+
+        const perRow = isMobile ? 8 : isWide ? 14 : 11;
+
+        for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+          const row = document.createElement("div");
+          row.className = "outline-backdrop-row";
+          if (rowIndex % 2 === 1) {
+            row.classList.add("reverse");
+          }
+          row.style.top = `${startTop + rowIndex * rowStep}px`;
+          row.style.setProperty(
+            "--row-duration",
+            `${28 + Math.random() * 18}s`,
+          );
+          row.style.setProperty("--row-delay", `${-1 * Math.random() * 10}s`);
+
+          const track = document.createElement("div");
+          track.className = "outline-backdrop-track";
+          const tokens = [];
+
+          for (let i = 0; i < perRow; i += 1) {
+            const country =
+              data.countries[Math.floor(Math.random() * data.countries.length)];
+            const token = createBackdropToken(country);
+            if (token) {
+              tokens.push(token);
+              track.appendChild(token);
+            }
+          }
+
+          tokens.forEach((token) => {
+            track.appendChild(token.cloneNode(true));
+          });
+
+          row.appendChild(track);
+          outlineBackdrop.appendChild(row);
+        }
+      }
+
+      let backdropData = null;
+
+      loadGameData()
+        .then((data) => {
+          backdropData = data;
+          renderOutlineBackdrop(data);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+
+      window.addEventListener("resize", () => {
+        if (backdropData) {
+          renderOutlineBackdrop(backdropData);
+        }
+      });
+    </script>
+  </body>
+</html>

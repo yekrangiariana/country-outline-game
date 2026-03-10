@@ -44,6 +44,7 @@ export function createMapSelectQuestion(
       placeholder: `Click a ${itemSingular} on the map`,
     },
     visuals: { layout: "none" },
+    exposedIso2: [target.iso2],
     mapAssistPolicy: "required",
     worldAssist: toAssist(),
     getSelection() {

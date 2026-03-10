@@ -34,7 +34,7 @@ export function createBattleQuestion(left, right) {
 
   return {
     prompt: `Which ${itemSingular} has more land-border neighbors: ${leftLabel} or ${rightLabel}?`,
-    hint: "Count only neighbors that share a land border (no maritime borders). Choose one or Tie.",
+    hint: "Count only land-border neighbors inside the current map set. External areas (for example Russia in Finland mode) are not counted. Choose one or Tie.",
     input: {
       type: "choice",
       options: [
@@ -50,6 +50,7 @@ export function createBattleQuestion(left, right) {
       leftLabel: left.name,
       rightLabel: right.name,
     },
+    exposedIso2: [left?.iso2, right?.iso2].filter(Boolean),
     mapAssistPolicy: "disabled",
     submit(rawAnswer) {
       const ok = rawAnswer === answer;

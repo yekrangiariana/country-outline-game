@@ -32,6 +32,7 @@ export function createReverseBorderQuestion(data, target, rng) {
     hint: `Use the clue outlines below. Turn on map assist if you need help.`,
     input: { type: "text", placeholder: `Type ${itemSingular}` },
     visuals: { layout: "multi", items: clueItems },
+    exposedIso2: [target.iso2],
     mapAssistDefaultOn: false,
     worldAssist: {
       highlights: [

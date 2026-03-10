@@ -16,6 +16,7 @@ export function createNormalQuestion(target) {
       placeholder: `${itemSingular.charAt(0).toUpperCase() + itemSingular.slice(1)} name`,
     },
     visuals: { layout: "single", feature: target.feature },
+    exposedIso2: [target.iso2],
     mapAssistPolicy: "disabled",
     submit(rawAnswer) {
       const guess = normalize(rawAnswer || "");
@@ -38,16 +39,24 @@ export function createNormalQuestion(target) {
   };
 }
 
-export function createNormalMode(data, rng = Math.random) {
+export function createNormalMode(data, rng = Math.random, options = {}) {
   let round = 0;
-  const picker = createCyclingPicker(data.countries, rng);
+  const requestedPool = String(options?.quizPool || "all").toLowerCase();
+  const isPlayedPool =
+    requestedPool === "played" || data?.meta?.quizPool === "played";
+  const pool =
+    requestedPool === "played" && Array.isArray(options?.poolCountries)
+      ? options.poolCountries.filter(Boolean)
+      : data.countries;
+  const totalRounds = isPlayedPool ? pool.length : ROUNDS;
+  const picker = createCyclingPicker(pool, rng);
 
   return {
     id: "normal",
     name: "Normal Mode",
-    totalRounds: ROUNDS,
+    totalRounds,
     nextQuestion() {
-      if (round >= ROUNDS) {
+      if (round >= totalRounds) {
         return null;
       }
       round += 1;
