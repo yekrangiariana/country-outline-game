@@ -1451,7 +1451,7 @@ body.in-mode .legal-link-footer {
   }
 
   .mode-cards {
-    min-height: 760px;
+    min-height: fit-content;
   }
 
   .duel-wrap {
